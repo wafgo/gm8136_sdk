@@ -1,6 +1,7 @@
 # Prerequisites
 *.d
-
+.clangd
+.ccls_cache
 # Object files
 *.o
 *.ko
