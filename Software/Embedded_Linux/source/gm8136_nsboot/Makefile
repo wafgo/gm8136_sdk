@@ -28,7 +28,7 @@ LINK_SCRIPT = ld.script
 
 #CROSS_COMPILE = arm-linux-
 #CROSS_COMPILE = /usr/src/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/arm-unknown-linux-uclibcgnueabi-
-CROSS_COMPILE = /home/local/devel/cross/arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+CROSS_COMPILE = /home/local/devel/cross/arm-linux-gnueabi/bin/arm-linux-gnueabi-
 
 CC = $(CROSS_COMPILE)gcc
 LD = $(CROSS_COMPILE)ld
@@ -36,7 +36,7 @@ NM = $(CROSS_COMPILE)nm
 OBJCOPY = $(CROSS_COMPILE)objcopy
 
 CFLAGS = -Wall -O2 -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -fno-exceptions -fno-builtin\
-	 -march=armv4 -msoft-float -nodefaultlibs -nostdlib -nostartfiles
+	 -march=armv4 -mfloat-abi=softfp -nodefaultlibs -nostdlib -nostartfiles
 
 LDFLAGS = -Wl,-T,$(LINK_SCRIPT) -Wl,-Ttext,$(TEXT_START_ADDR) -Wl,--gc-sections -nostartfiles
 

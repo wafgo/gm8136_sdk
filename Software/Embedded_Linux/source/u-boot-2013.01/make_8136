@@ -1,3 +1,4 @@
+export CROSS_COMPILE=/home/local/devel/cross/arm-linux-gnueabi/bin/arm-linux-gnueabi-
 make distclean
 make gm8136_config
 make dep

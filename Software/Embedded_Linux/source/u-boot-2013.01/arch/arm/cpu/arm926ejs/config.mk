@@ -21,7 +21,7 @@
 # MA 02111-1307 USA
 #
 
-PLATFORM_RELFLAGS += -fno-common -ffixed-r8 -msoft-float
+PLATFORM_RELFLAGS += -fno-common -ffixed-r8 -mfloat-abi=softfp
 
 PLATFORM_CPPFLAGS += -march=armv5te
 # =========================================================================
