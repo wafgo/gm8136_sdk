@@ -42,7 +42,7 @@ Now run **make**
 You will get the nsboot elf and **nsboot.bin** (which is the interesting one)
 
 Below you see the **nsboot.bin** side by side to **fw.bin**
-[find_nsboot_in_fw]: https://github.com/wafgo/gm8136_sdk/images/nsboot_contained_in_fw.png "nsboot.bin is located at 0x1000 on the spi flash"
+[find_nsboot_in_fw]: https://github.com/wafgo/gm8136_sdk/tree/main/images/nsboot_contained_in_fw.png "nsboot.bin is located at 0x1000 on the spi flash"
 
 We can see that it is located at a offset of **0x1000** in the SPI flash.
 
