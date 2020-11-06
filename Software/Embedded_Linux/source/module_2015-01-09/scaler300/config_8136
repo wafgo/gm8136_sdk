@@ -1,0 +1,31 @@
+############################################################
+#
+# SCALER300 Platform Parameter for GM8129
+#
+# This config file is hardware independent, don't modify it.
+#
+# LLI_MEMORY = 440*64/8
+# LLI_MAX_CMD = 440*64/64     --> 1 command = 64 bits
+# LLI_MAX_BLK = 440/32        --> 1 BLOCK = 32 commands
+# PARAM_MEMORY_LEN = 0x1B0
+# TOTAL_RESOLUTION = 4096
+# DUMMY_BASE = 0xD00          -->0xD00~0xDC0 for dummy job
+#
+############################################################
+PLATFORM_ENGINE_NUM = 1
+PLATFORM_LLI_MEMORY = 0xDC0
+PLATFORM_LLI_MAX_CMD = 440
+PLATFORM_LLI_MAX_BLK = 13
+PLATFORM_PARAM_MEMORY_LEN = 0x1B0
+PLATFORM_TOTAL_RESOLUTION = 4096
+PLATFORM_MAX_RESOLUTION = 4096
+PLATFORM_DUMMY_BASE = 0xD00
+PLATFORM_PALETTE_MAX = 8
+PLATFORM_MAX_PATH_PER_CHAIN = 6
+PLATFORM_SRAM_BLK = 1
+PLATFORM_GM8210 = 0
+PLATFORM_GM8287 = 0
+PLATFORM_GM8139 = 1
+PLATFORM_BLK_MAX = 2
+PLATFORM_MAX_CHAIN_JOB = 8
+PLATFORM_MAX_CHAIN_LL_BLK = 10

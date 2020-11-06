@@ -1,0 +1,1212 @@
+
+-------------------------------------------------------------------------------
+Note: This is about how libburn operates optical drives. Not about how to
+      operate libburn. The libburn API is described in libburn/libburn.h
+-------------------------------------------------------------------------------
+
+
+        Overview of class specific or individual media information
+             especially manufacturer and exact product type
+
+Inspired by Andy Polyakov's http://fy.chalmers.se/~appro/linux/DVD+RW/tools ,
+and by Joerg Schilling's http://cdrecord.berlios.de/private/cdrecord.html,
+backed by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/,
+ECMA-279 (DVD-R), ECMA-337 (DVD+RW), ECMA-349 (DVD+R),
+and by searching the web for media manufacturer IDs (see list of URLs below).
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+September 2009
+
+-------------------------------------------------------------------------------
+CD: 
+
+The manufacturers vary the lead-in address in ATIP
+    ATIP start of lead in:  -12490 (97:15/35)
+Media sizes and nominal speeds often get expressed in the ATIP lead-out
+address.
+    ATIP start of lead out: 359849 (79:59/74)
+(example media labeled "LITEON CD-RW 4x-12x", by "Nan-Ya Plastics Corporation")
+
+This is available only with profile 0x09 (CD-R) and 0x0A (CD-RW).
+CD-ROM media (0x08) cannot be inquired by command 43h READ TOC/PMA/ATIP.
+
+6.26 READ TOC/PMA/ATIP Format 4 with MSF bit produces these data as described
+in 6.26.3.6 Response Format 0100b: ATIP.
+The minute, second, and frame number of lead-in can be read from byte 4 to 6
+of the ATIP descriptor. The lead-out bytes are at position 8 to 10. The ATIP
+descriptor is preceeded by a four byte header.
+
+I could not find out yet whether (lead-in,lead-out) is mandatorily unique for
+each particular media product.
+
+The parameters can be obtained via libburn by :
+    burn_disc_read_atip(d),
+    burn_drive_get_start_end_lba(d, start_lba, end_lba, 0),
+    burn_lba_to_msf(start_lba, &m_li, &s_li, &f_li) and
+    burn_lba_to_msf(end_lba, &m_lo, &s_lo, &f_lo)
+
+There seems to be no public and free list of manufacturers and codes.
+Nevertheless many people report codes and manufacturer names in the web.
+Especially helpful are media compatibility lists by drive manufacturers.
+
+The items from the CD media list below are the foundation of libburn API call
+burn_guess_cd_manufacturer() which rounds the lead-in address down to
+multiples of 10 frames and then looks them up in its list.
+
+
+-------------------------------------------------------------------------------
+DVD + BD: 
+
+dvd+rw-mediainfo uses MMC-5 6.23, ADh READ DISC STRUCTURE which returns media
+type specific information if the drive supports the particular Format Code.
+
+With DVD+ and BD there is a 8 character Manufacturer ID, a 3 character Media
+Id and a single character Media Revision.
+
+With DVD-R, ECMA-279 promises a Manufacturer ID of up to 18 characters.
+With DVD-RW, ECMA-338 gives up the meaning of the last six-pack.
+Both, DVD-RW RITEKW01 and DVD-R RITEKF1 bear unprintable characters there.
+
+With DVD-ROM and DVD-RAM there seem to be no such ids.
+
+
+6.23.3.2.1 Format Code 00h: Physical Format Information
+
+Disk Category in bits 4 to 7 of byte 0 gives the "Book Type".
+MMC-5 Table 401 gives this list
+    0x0  DVD-ROM
+    0x1  DVD-RAM
+    0x2  DVD-R
+    0x3  DVD-RW
+    0x4  HD DVD-ROM
+    0x5  HD DVD-RAM
+    0x6  HD DVD-R
+    0x9  DVD+RW
+    0xA  DVD+R
+    0xD  DVD+RW DL
+    0xE  DVD+R DL
+Bits 0 to 3 is Part Version "[revision %d]"
+
+
+6.23.3.1.7 Format Code FFh: Disc Structure List
+
+Returns a list of 4-byte list entries:
+Byte0 gives an available format code.
+Byte1,bit6 confirms that it is readable.
+Bytes 2 and 3 predict the reply length.
+
+
+DVD+RW and DVD+R:
+
+dvd+rw-mediainfo prefers this if available:
+
+ Format code 11h : "ADIP Information"
+ dvd+rw-mediainfo: 
+         printf (" Media ID:              %.8s/%.3s\n",dvd._11+23,dvd._11+31),
+ = ECMA-337 (DVD+RW) and ECMA-349 (DVD+R)
+   14.4.2  Physical format information in ADIP, Table 3
+   byte 19: Disk Manufacturer ID
+   byte 27: Media Type ID
+   (byte 28: Product revision number)
+   MMC-5 6.23.3.2.17 , Table 426 shows 4 byte header:
+     MSB,LSB of Disc Structure Data Length
+     2 bytes reserved
+
+Two of my burners do not perform this operation on DVD+ media and reply
+[5 24 00] "Invalid field in cdb":
+   'HL-DT-ST'  'BD-RE GGW-H20L'
+   'HL-DT-ST'  'BDDVDRW GGC-H20L'
+The other one does it with the same media:
+   'TSSTcorp'  'CDDVDW SH-S203B'
+
+This refusal seems not uncommon. dvd+rw-mediainfo later does:
+
+ Format code 00h : "Physical Format Information"
+ dvd+rw-mediainfo:
+    if (dvd_plus && !plus_mediaid_printed)
+        printf (" Media ID:              %.8s/%.3s\n",header+23,header+31);
+ = ECMA-337 (DVD+RW) and ECMA-349 (DVD+R)
+   14.4.2  Physical format information in ADIP, Table 3
+   byte 19: Disk Manufacturer ID
+   byte 27: Media Type ID
+   (byte 28: Product revision number)
+   MMC-5 6.23.3.2.1 , Table 400, Table 407
+   says for DVD+RW bytes 19 - 255 are a copy of bytes 19 -255 from ADIP
+   dvd+rw-mediainfo applies this to DVD+R too
+
+
+DVD-R , DVD-RW, (DVD-R DL) :
+
+Format code 0Eh "Pre-recorded Information in Lead-in"
+ dvd+rw-mediainfo:
+      if (!dvd_plus && dvd_0E && dvd._e[4+16]==3 && dvd._e[4+24]==4)
+      printf (" Media ID:              %6.6s%-6.6s\n",dvd._e+4+17,dvd._e+4+25);
+ = ECMA-279 (DVD-R)
+   27.3.7 Field ID3 to Field ID5
+   28.3.2.1 RMD Field 0, Table 20 - Copy of Pre-pit Information
+   It appears that the reply format of MMC ADh format 0Eh is the data record
+   shown in Table 20 of ECMA-279 with offset 22:
+   Manufacturer ID at bytes 17 to 22, 25 to 30, 33 to 38.
+   Bytes 16, 24, 32 have content 3, 4, 5.
+   ECMA-338 (DVD-RW) says the same in:
+   29.3.3.1.1 Format1 RMD Field0
+   Table 24 - Copy of Pre-pit Information
+   Manufacturer ID at bytes 17 to 22, 25 to 30, but not at 33
+   6.23.3.2.14 Format Code 0Eh: Pre-recorded Information in Lead-in
+   Table 423 shows 4 byte header:
+     MSB,LSB of Disc Structure Data Length
+     2 bytes reserved
+
+                      
+>>> still to evaluate:
+ Format code 0Fh : "Unique Disc Identifier"
+ = 6.23.3.2.15 Format Code 0Fh: Unique Disc Identifier
+
+
+DVD-RAM :
+
+dvd+rw-mediainfo lists no info about manufacturer or type.
+No format code of ADh READ DISC STRUCTURE promises such info for DVD-RAM.
+
+
+BD-R and BD-RE:
+
+ dvd+rw-mediainfo:
+        if (di[4+0]=='D' && di[4+1]=='I')
+        printf (" Media ID:              %6.6s/%-3.3s\n",di+4+100,di+4+106);
+ = MMC-5 6.23.3.3.1 Format Code 00h: Disc Information (DI)
+   Table 288 says that Media Type Code (byte 1 of CDB) for BD media is 1.
+   Table 446 says that Disc Information is preceeded by 4 bytes of header.
+   Table 448 says that bytes 0   to   1 are Disc Information Identifier "DI".
+                  that bytes 8   to  10 are Disc Type Identifier
+                                            BDO for BD-ROM, BDW for BD-RE,
+                                            BDR for BD-R
+                  that bytes 100 to 105 are Disc Manufactuer ID
+                  that bytes 106 to 108 are Media Type ID
+                  that byte  111        is Product Revision Number
+
+
+Via libburn these manufacturer and media ids can be retrieved by API call
+burn_disc_get_media_id() as a single printable word product_id and as two
+printable words media_code1, media_code2. The latter can be translated into
+a manufacturer company name by API call burn_guess_manufacturer().
+(Both calls work for CD, too. burn_get_media_product_id() eventually calls
+ burn_disc_read_atip().) 
+
+
+===============================================================================
+
+                          Collection of Media IDs
+
+Sources:
+
+[Gig] http://www.gigabyte.com.tw/FileList/WebPage/old_system_oddwebpage/media_support_list_r5232a.pdf
+[Aopen] http://download.aopen.com.tw/Download.aspx?RecNo=11411&Model=2597&Section=1&DL=yes
+[Msi] http://ru.msi.com/products/multimedia/optical/spec/recommend_disc.pdf
+[Btc] http://www.btc.com.tw/english/3-2-1MediaSupport_combo5216_cdr.htm
+[Mits] http://www.mitsubishielectric.com.au/assets/vis/DD16C48_Media_Compatibility.pdf
+[Hij] http://hijacker.rpc1.org/toshiba/SD-R5372V/MediaList_SD-R5372V_TU15.pdf
+[Teac] http://www.google.com/url?sa=t&source=web&ct=res&cd=4&url=http%3A%2F%2Fdspd.teac.de%2Ffileadmin%2Fredaktion%2Fdownloads%2Ffirmware%2Fmedialist%2Fmedialist_dvw50e_130.pdf&ei=0smfSt-TBNaosgbnm6wZ&rct=j&q=cd+%22manufacturer+id%22+97&usg=AFQjCNH4hSHb7yphONuO_NnaaWLV4g5v9A
+[Blu]  http://www.blu-raydisc.info/licensee_info.php 
+[Edig] http://www.editgrid.com/user/idrs/DVR112_MediaList_109_20070118_2final.xml
+
+
+Found by : www.google.com : NAN-YA cmc Princo Ricoh lead-in
+Try also : www.google.com : cd "manufacturer id" 97
+
+------------------------------------------------------------------------------
+
+                              CD Media IDs
+
+The findings from the web have been cross checked with the lists of cdrecord.
+But no codes or manufacturer ids have been taken from diskid.c out of
+cdrtools-2.01.01a39/cdrecord/.
+
+X = not in cdrecord 
+D = different in cdrecord 
+The exact lettering of manufacturer names may differ from cdrecord.
+For any exact comparison use rather the minute,second,frame tuples of the ATIP
+lead-in address directly. The vast majority of these tuples begin with 97.
+(libburn API call burn_disc_get_media_id() encodes both tuples in its reply
+ parameters as e.g. "97m15s35f/79m59s74f" , "97m15s35f", "79m59s74f")
+
+
+Chosen Name
+Lead-in   Lead-out           Name          [source]
+========================================================
+
+"SKC"
+X
+96 40 05  79 59 74  -        SKC(90) 24X   [Msi]
+
+"Ritek Corp"
+X
+96 43 33  79 59 74  702.83MB TRAXDATA 24X   [Msi]
+96 43 33  79 59 74  90 32x "Prodisc Technology Inc." [Gig]
+96 43 37  79 59 73  99 48x "Ritek Corp"  [Gig]
+96 43 37  79 59 73  Ritek   [Aopen]
+96 43 37  79 59 74  702.83MB PHIL(Ritek) Multi Speed   [Msi]
+96 43 37  79 59 74  90 48x "Ritek Corp"  [Gig]
+96 43 37  79 59 74  Ritek   [Aopen]
+96 43 37  79 59 74  Ritek  [Btc]
+
+"TDK / Ritek"
+X
+97 10 00  79 59 74  702.83MB RiDATA(Ritek) N/A 12X   [Msi]
+97 10 00  79 59 74  702.83MB TRAXDATA(Ritek) 10X   [Msi]
+97 10 00  79 59 74  702.83MB TRAXDATA(Ritek) N/A 10X   [Msi]
+97 10 00  79 59 74  80 12X "TDK Corporation"  [Gig]
+97 10 00  79 59 74  TDK(RITEK)   [Aopen]
+97 10 01  79 59 74  702.83MB Ritek.Co.  16X   [Msi]
+97 10 01  79 59 74  Ritek   [Aopen]
+97 10 03  79 59 74  80 32X "RITEK" [Gig]
+
+"TDK Corporation"
+97 15 00  79 59 74  702.83MB 52X TDK Multi Speed   [Msi]
+97 15 00  79 59 74  TDK  [Btc]
+97 15 01  79 59 74  80 24X "TDK Corporation"  [Gig]
+97 15 05  79 59 74  80 52X "TDK Corporation"  [Gig]
+97 15 05  79 59 74  TDK 52X   [Msi]
+97 15 05  79 59 74  TDK   [Aopen]
+97 15 05  79 59 74  TDK  [Btc]
+97 15 05  91 01 48  800MB TDK 40X 800MB   [Msi]
+97 15 05  91 01 48  800MB TDK 40X   [Msi]
+97 15 05  91 01 48  90 24X "TDK Corporation"  [Gig]
+97 15 05  91 01 48  TDK   [Aopen]
+
+"Ritek Corp"
+97 15 12  79 59 73  702.83MB Ritek Co.  52X   [Msi]
+97 15 12  79 59 73  80 52x "Ritek Corp"  [Gig]
+97 15 12  79 59 73  Ritek,80   [Aopen]
+97 15 12  79 59 73  Ritek  [Btc]
+97 15 12  79 59 73  Ritek CD-R 52X 702.83MB  [Mits]
+97 15 12  79 59 74  80 24x "Ritek Corp"  [Gig]
+97 15 12  79 59 74  Ritek  [Btc]
+97 15 17  24 15 01  Ritek  [Btc]
+97 15 17  74 45 01  Ritek  [Btc]
+97 15 17  79 59 70  702.83MB 7-plus (Ritek) Multi Speed   [Msi]
+97 15 17  79 59 70  702.83MB Aopen (Ritek) Multi Speed   [Msi]
+97 15 17  79 59 70  702.83MB PONY (Ritek) Multi Speed   [Msi]
+97 15 17  79 59 70  702.83MB PONY(Ritek) Multi Speed   [Msi]
+97 15 17  79 59 70  702.83MB Power Source(Ritek) 32X   [Msi]
+97 15 17  79 59 70  702.83MB Ritek 40X   [Msi]
+97 15 17  79 59 70  702.83MB Ritek Co.  52X   [Msi]
+97 15 17  79 59 70  702.83MB TDK (Ritek ) 40X   [Msi]
+97 15 17  79 59 70  702.83MB TDK(Ritek ) 40X   [Msi]
+97 15 17  79 59 70  702.83MB TDK(Ritek ) 48X   [Msi]
+97 15 17  79 59 70  702.83MB TDK(Ritek) 48X   [Msi]
+97 15 17  79 59 70  702.83MB TRAXDATA (Ritek ) 40X   [Msi]
+97 15 17  79 59 70  80 52x "Ritek Corp"  [Gig]
+97 15 17  79 59 70  Aopen CD-R Multi Speed 702.83MB  [Mits]
+97 15 17  79 59 70  HiCO CD-R Multi Speed 702.83MB  [Mits]
+97 15 17  79 59 70  PHILIPS CD-R 48X 702.83MB  [Mits]
+97 15 17  79 59 70  PONY CD-R Multi Speed 702.83MB  [Mits]
+97 15 17  79 59 70  Primdisc CD-R 52X 702.83MB  [Mits]
+97 15 17  79 59 70  RiDATA CD-R 40X 702.83MB  [Mits]
+97 15 17  79 59 70  Ritek   [Aopen]
+97 15 17  79 59 70  Ritek  [Btc]
+97 15 17  79 59 70  Ritek CD-R 40X 702.83MB  [Mits]
+97 15 17  79 59 70  Ritek CD-R 52X 702.83MB  [Mits]
+97 15 17  79 59 70  TDK CD-R 40X 702.82MB  [Mits]
+97 15 17  79 59 70  TDK CD-R 40X 702.83MB  [Mits]
+97 15 17  79 59 70  TRAXDATA CD-R 40X 702.83MB  [Mits]
+97 15 17  79 59 70  Victor.JVC CD-R 48X 702.82MB  [Mits]
+97 15 17  79 59 71  702.82MB PONY(Ritek) Multi Speed   [Msi]
+97 15 17  79 59 71  702.83MB TRAXDATA(Ritek) 24X   [Msi]
+97 15 17  79 59 71  80 24x "Ritek Corp"  [Gig]
+97 15 17  79 59 71  Ritek  [Btc]
+97 15 17  79 59 72  Ritek  [Btc]
+97 15 17  79 59 73  702.83MB OPTI STORAGE (Ritek) 40X   [Msi]
+97 15 17  79 59 73  702.83MB Ritek 48X   [Msi]
+97 15 17  79 59 73  702.83MB Ritek.Co (Trax) 40X   [Msi]
+97 15 17  79 59 73  702.83MB Samsung Digit(Ritek) 40X   [Msi]
+97 15 17  79 59 73  80 52x "Ritek Corp"  [Gig]
+97 15 17  79 59 73  Ritek   [Aopen]
+97 15 17  79 59 74  Ritek  [Btc]
+97 15 18  79 59 74  80 32x "Ritek Corp"  [Gig]
+
+"Mitsubishi Chemical Corporation"
+97 15 21  79 59 74  MCC ("Mitsubishi Chemical Corporation")  [Btc]
+
+"Nan-Ya Plastics Corporation"
+97 15 35  79 59 73  702.83MB NANYA 4-12X   [Msi]
+97 15 35  79 59 73  80 12X "Nan-Ya"  [Gig]
+97 15 35  79 59 73  NanYa   [Aopen]
+97 15 35  79 59 74  702.83MB Hatron(NANYA) 4-10X   [Msi]
+97 15 35  79 59 74  702.83MB MMore(NANYA) 4-10X   [Msi]
+97 15 35  79 59 74  (NanYa)   [Aopen]
+97 15 36  79 59 74  80 40x "Nan-Ya plastics Corporation"  [Gig]
+97 15 36  79 59 74  NanYa   [Aopen]
+97 15 36  79 59 74  NANYA  [Btc]
+97 15 37  79 59 73  NANYA  [Btc]
+97 15 37  79 59 74  702.83MB NANYA 1-52X   [Msi]
+97 15 37  79 59 74  702.83MB NANYA 48X   [Msi]
+97 15 37  79 59 74  80 52x "Nan-Ya plastics Corporation"  [Gig]
+97 15 37  79 59 74  Acer CD-R 48X 702.83MB  [Mits]
+97 15 37  79 59 74  LITEON CD-R 48X 702.83MB  [Mits]
+97 15 37  79 59 74  LITEON CD-R 52X 702.83MB  [Mits]
+97 15 37  79 59 74  NANYA  [Btc]
+97 15 37  79 59 74  NANYA CD-R 1-52X 702.83MB  [Mits]
+97 15 39  79 59 74  80 52x "Nan-Ya plastics Corporation"  [Gig]
+97 15 39  79 59 74  NanYa   [Aopen]
+97 15 39  79 59 74  NANYA  [Btc]
+
+"Delphi"
+X
+97 15 57  79 59 73  Delphi   [Aopen]
+97 15 57  79 59 74   Delphi  [Btc]
+
+"Shenzhen SG&SAST"
+97 16 29  79 59 73  702.83MB SAST(SHENZHEN) Multi  peed    [Msi]
+97 16 29  79 59 73  80 52x "Shenzhen SG&SAST  [Gig]
+97 16 29  79 59 73  SAST  [Btc]
+97 16 29  79 59 73  SAST(ultra   [Aopen]
+97 16 29  79 59 74  80 52x "Shenzhen SG&SAST"  [Gig]
+
+"Moser Baer India Limited"
+97 17 00            4x "Moser Baer India Limited"  [Gig]
+97 17 01  79 59 74  MBI   [Aopen]
+97 17 06  79 59 74  702.83MB EMTEC (Moser Bear India) 48X   [Msi]
+97 17 06  79 59 74  702.83MB Intenso (Moser Bear India) 1-48X   [Msi]
+97 17 06  79 59 74  702.83MB Moser Bear India 52X   [Msi]
+97 17 06  79 59 74  702.83MB YAKUMO(Moser Bear India) 52X   [Msi]
+97 17 06  79 59 74  80 52x "Moser Baer India Limited"  [Gig]
+97 17 06  79 59 74  MBI   [Aopen]
+97 17 06  79 59 74  Moser Bear India CD-R 52X 702.83MB  [Mits]
+97 17 06  79 59 74  PLATINUM CD-R 52X 702.83MB  [Mits]
+97 17 06  79 59 74  Silver Circle CD-R 52X 702.83MB  [Mits]
+
+"SKY media Manufacturing SA"
+X
+97 17 16  79 59 74  80 48x "SKY media Manufacturing SA"  [Gig]
+97 17 16  79 59 74  SKY   [Aopen]
+
+"Wing"
+D "WEALTH FAIR INVESTMENT LIMITED"
+97 18 17  79 59 74  Wing   [Aopen]
+
+"DDT"
+X
+97 18 28  79 59 74  DDT   [Aopen]
+
+"Taroko International Co.Ltd"
+97 18 67  79 59 73  80 48x "Taroko International Co.Ltd"  [Gig]
+97 18 67  79 59 74  Taroko   [Aopen]
+97 18 67  79 59 74  TAROKO  [Btc]
+
+"Daxon Technology Inc. / Acer"
+D "Acer Media Technology, Inc."
+97 22 60            4x "Daxon Technology Inc."  [Gig]
+97 22 60  74 41 50  74 12X "Daxon Technology Inc."  [Gig]
+97 22 60  74 41 50  Acer CD-RW 4X 656.20MB  [Mits]
+97 22 60  74 41 50  Acer US-RW 24X 656.20MB  [Mits]
+97 22 60  74 41 50  Daxon   [Aopen]
+97 22 60  79 59 74  702.83MB Maxmax(Acer) 8-10X   [Msi]
+97 22 60  79 59 74  80 24x "Daxon Technology Inc."  [Gig]
+97 22 60  79 59 74  Acer CD-RW 4X 702.83MB  [Mits]
+97 22 60  79 59 74  Daxon   [Aopen]
+97 22 60  79 59 74  Diamond Data HS-RW 4-16X 702.83MB  [Mits]
+97 22 60  79 59 74  Maxmax HS-RW 8-10X 702.83MB  [Mits]
+97 22 62  79 59 74  702.83MB Acer 4-16X   [Msi]
+97 22 62  79 59 74  702.83MB Acer N/A 4-16X   [Msi]
+97 22 62  79 59 74  Acer   [Aopen]
+97 22 66  79 59 74  80 52x "Daxon Technology Inc."  [Gig]
+97 22 66  79 59 74  Acer   [Aopen]
+97 22 67  79 59 74  702.83MB Acer 52X   [Msi]
+97 22 67  79 59 74  702.83MB BenQ(Acer) 40X   [Msi]
+97 22 67  79 59 74  702.83MB BenQ (Acer) 48X   [Msi]
+97 22 67  79 59 74  702.83MB Daxon(Acer) 48X   [Msi]
+97 22 67  79 59 74  702.83MB gold(Acer) 32X   [Msi]
+97 22 67  79 59 74  702.83MB SONY(Acer) 48X   [Msi]
+97 22 67  79 59 74  80 52x "Daxon Technology Inc."  [Gig]
+97 22 67  79 59 74  Acer  [Btc]
+97 22 67  79 59 74  Acer CD-R 52X 702.83MB  [Mits]
+97 22 67  79 59 74  Acer,DAXON   [Aopen]
+
+"Taiyo Yuden Company Limited"
+97 24 01  74 43 00  74 16x "Taiyo Yuden Company Limited"  [Gig]
+97 24 01  74 43 01  656.40MB Maxell(Taiyo Yuden) 32X   [Msi]
+97 24 01  74 43 01  656.40MB Taiyo Yuden 32X   [Msi]
+97 24 01  74 43 01  74 48x "Taiyo Yuden Company Limited"  [Gig]
+97 24 01  74 43 01  Taiyo Yuden  [Btc]
+97 24 01  74 43 01  TY,tuned   [Aopen]
+97 24 01  74 43 02  656.40MB Taiyo Yuden 40-48X   [Msi]
+97 24 01  74 43 02  74 52x "Taiyo Yuden Company Limited"  [Gig]
+97 24 01  74 43 02  FUJIFILM CD-R 48X 656.40MB  [Mits]
+97 24 01  74 43 02  Taiyo Yuden  [Btc]
+97 24 01  74 43 02  TY   [Aopen]
+97 24 01  79 59 72  702.83MB Taiyo Yuden 40-48X   [Msi]
+97 24 01  79 59 72  702.83MB Taiyo Yuden 48X   [Msi]
+97 24 01  79 59 72  702.83MB Taiyo Yuden Multi Speed   [Msi]
+97 24 01  79 59 72  80 52x "Taiyo Yuden Company Limited"  [Gig]
+97 24 01  79 59 72  Maxell CD-R 48X 702.83MB  [Mits]
+97 24 01  79 59 72  SONY CD-R 48X 702.83MB  [Mits]
+97 24 01  79 59 72  Taiyo Yuden  [Btc]
+97 24 01  79 59 72  Taiyo Yuden CD-R 52X 702.83MB  [Mits]
+97 24 01  79 59 72  Taiyo Yuden CD-R Multi Speed 702.83MB  [Mits]
+97 24 01  79 59 72  TY   [Aopen]
+97 24 01  79 59 73  702.83MB SONY(Taiyo Yuden) 32X   [Msi]
+97 24 01  79 59 73  702.83MB Taiyo Yuden 32X   [Msi]
+97 24 01  79 59 73  80 48x "Taiyo Yuden Company Limited"  [Gig]
+97 24 01  79 59 73   Taiyo Yuden  [Btc]
+97 24 01  79 59 73  TY,tuned   [Aopen]
+97 24 01  79 59 74  702.83MB FUJIFILM(Tayio Yuden) 48X   [Msi]
+97 24 01  79 59 74  80 16x "Taiyo Yuden Company Limited"  [Gig]
+
+"Sony Corporation"
+97 24 11  74 43 00  74 24x "Sony Corporation"  [Gig]
+97 24 11  79 59 11  80 24x "Sony Corporation"  [Gig]
+97 24 11  79 59 74  Sony   [Aopen]
+97 24 11  79 59 74  SONY  [Btc]
+97 24 12  74 43 00  74 48x "Sony Corporation"  [Gig]
+97 24 12  74 43 00  LeadData,Sony   [Aopen]
+97 24 12  79 59 74  80 32x "Sony Corporation"  [Gig]
+97 24 12  79 59 74  SONY  [Btc]
+97 24 15  74 30 00  Imation   [Aopen]
+97 24 15  74 43 00  654.49MB imation(Sony) 4X-10X   [Msi]
+97 24 15  79 59 74  702.83MB (SONY) 2-24X   [Msi]
+97 24 15  79 59 74  702.83MB SONY(Lead data) 48X   [Msi]
+97 24 15  79 59 74  80 48x "Sony Corporation"  [Gig]
+97 24 15  79 59 74  Sony   [Aopen]
+97 24 16  79 59 74  702.83MB SONY(Lead data) 52X   [Msi]
+97 24 16  79 59 74  80 52x "Sony Corporation"  [Gig]
+97 24 16  79 59 74  Sony   [Aopen]
+97 24 16  79 59 74  SONY  [Btc]
+
+"Computer Support Italcard s.r.l"
+97 24 26  79 59 74  80 52x "Computer Support Italcard s.r.l"  [Gig]
+97 24 26  79 59 74  Csita   [Aopen]
+
+"Unitech Japan Inc."
+97 24 39  79 59 74  80 52x "Unitech Japan Inc."  [Gig]
+97 24 39  79 59 74  RA   [Aopen]
+
+"MPO, France" 
+97 25 00  79 59 74  TDK CD-R80(25)  [Teac]
+97 25 06  74 45 00  74 52x "MPO"  [Gig]
+97 25 06  74 45 00  MPO,France   [Aopen]
+97 25 06  79 59 74  80 52x "MPO"  [Gig]
+97 25 07  79 59 00  MPO,France   [Aopen]
+
+"Hitachi Maxell Ltd."
+97 25 22  79 59 74  80 16x "Hitachi Maxell Ltd."  [Gig]
+97 25 29  74 30 00  654.49MB Hitachi Maxell Multi Speed   [Msi]
+97 25 29  74 30 00  74 52x "Hitachi Maxell Ltd."  [Gig]
+97 25 29  74 30 00  MAXELL   [Aopen]
+97 25 29  74 30 00  Maxell  [Btc]
+97 25 29  79 59 74  702.83MB Hitachi Maxell(Acer OEM) 32X   [Msi]
+97 25 29  79 59 74  702.83MB Hitachi Maxell Multi Speed   [Msi]
+97 25 29  79 59 74  80 52x "Hitachi Maxell Ltd."  [Gig]
+97 25 29  79 59 74  Eigen CD-R Multi Speed 702.83MB  [Mits]
+97 25 29  79 59 74  Maxell  [Btc]
+97 25 29  79 59 74  MAXWELL   [Aopen]
+
+"Infodisc Technology Co,Ltd."
+97 25 30  24 01 05  Infodisk 8cm HS-RW 12X 210.80MB  [Mits]
+97 25 30  -  -  -   4x "Infodisc Technology Co,Ltd."  [Gig]
+97 25 30  74 44 07  INFODISC   [Aopen]
+97 25 30  79 59 72  INFODISC   [Aopen]
+97 25 30  79 59 73  MEMOREX   [Aopen]
+97 25 30  79 59 74  80 10X "Infodisc Technology Co,Ltd."  [Gig]
+97 25 30  79 59 74  Infodisk CD-RW 4X 702.83MB  [Mits]
+97 25 30  79 59 74  MEMOREX(INFODISC)   [Aopen]
+97 25 31  79 59 73  80 24x "Infodisc Technology Co,Ltd."  [Gig]
+97 25 35  79 59 74  702.83MB Infodisc 52X   [Msi]
+97 25 35  79 59 74  702.83MB SPEEDA(Infodisc) 40X   [Msi]
+97 25 35  79 59 74  80 48x "Infodisc Technology Co,Ltd."  [Gig]
+97 25 35  79 59 74  Lead data  [Btc]
+
+"Xcitec"
+D "Xcitec Inc."
+97 25 66  79 59 73  XGITEK   [Aopen]
+
+"Fornet International Pte Ltd"
+97 26 00            4x "Fornet International Pte Ltd"  [Gig]
+97 26 00  79 59 74  80 12X "Fornet International Pte Ltd"  [Gig]
+97 26 00  79 59 74  COMPUSA,Fornet   [Aopen]
+97 26 01  74 56 00  74 24x "Fornet International Pte Ltd"  [Gig]
+97 26 01  79 59 74  80 12X "Fornet International Pte Ltd"  [Gig]
+97 26 06  79 59 74  80 24x "Fornet International Pte Ltd"  [Gig]
+97 26 07  79 59 64  90 24x "Fornet International Pte Ltd"  [Gig]
+97 26 07  79 59 64  Formet  [Btc]
+97 26 07  79 59 71  702.82MB Cdhouse (Fornet International) 52X   [Msi]
+97 26 07  79 59 71  80 52x "Fornet International Pte Ltd"  [Gig]
+97 26 07  79 59 71  Formet  [Btc]
+97 26 07  79 59 71  Fornet   [Aopen]
+97 26 07  79 59 74  Fornet   [Aopen]
+
+"Postech Corporation"
+97 26 11  22 23 60  Postech  [Btc]
+97 26 11  79 59 73  702.83MB Postech 52X   [Msi]
+97 26 11  79 59 73  80 52x "Postech Corporation"  [Gig]
+97 26 11  79 59 73  Postech   [Aopen]
+97 26 11  79 59 73  POSTECH   [Aopen]
+97 26 11  79 59 73  Postech  [Btc]
+97 26 11  79 59 73  Postech CD-R 52X 702.83MB  [Mits]
+97 26 11  79 59 74  702.83MB Postech corp Multi Speed    [Msi]
+97 26 11  79 59 74  702.83MB Postech N/A 12X   [Msi]
+97 26 11  79 59 74  80 12X "Postech Corporation"  [Gig]
+97 26 11  79 59 74  80 40x "Postech Corporation"  [Gig]
+97 26 11  79 59 74  Mr.Platinum   [Aopen]
+97 26 11  79 59 74  POSTECH   [Aopen]
+97 26 11  79 59 74  Postech  [Btc]
+97 26 15  79 59 74  80 32x "Postech Corporation"  [Gig]
+
+"SKC Co Ltd."
+97 26 21  74 59 73  74 12X "SKC Co Ltd."  [Gig]
+97 26 21  74 59 73  SKC74-Korea   [Aopen]
+97 26 21  79 59 74  80 12X "SKC Co Ltd."  [Gig]
+97 26 21  79 59 74  SKC80-Korea   [Aopen]
+97 26 26  79 59 73  702.83MB SKC 48X   [Msi]
+97 26 26  79 59 73  80 52x "SKC Co Ltd."  [Gig]
+97 26 26  79 59 73  Infinite CD-R 48X 702.83MB  [Mits]
+97 26 26  79 59 73  SKC  [Btc]
+97 26 26  79 59 73  SKC(Korea)   [Aopen]
+
+"Fuji Photo Film Co,Ltd."
+97 26 45  79 59 73  702.83MB FUJI 52X   [Msi]
+97 26 45  79 59 73  80 52x "Fuji Photo Film Co,Ltd."  [Gig]
+97 26 45  79 59 73  Fujifilm   [Aopen]
+97 26 45  79 59 74  80 32x "Fuji Photo Film Co,Ltd."  [Gig]
+
+"Lead Data Inc."
+97 26 50            4x "Lead Data Inc."  [Gig]
+97 26 50  74 59 74  SONY CD-RW 1-4X 702.83MB  [Mits]
+97 26 51  79 59 74  702.83MB Lead Data 12X   [Msi]
+97 26 51  79 59 74  80 12X "Lead Data Inc."  [Gig]
+97 26 51  79 59 74  Leaddata   [Aopen]
+97 26 52  79 59 74  80 32x "Lead Data Inc."  [Gig]
+97 26 53  79 59 74  702.83MB Lead Data 48X   [Msi]
+97 26 53  79 59 74  Gigastorage  [Btc]
+97 26 54  79 59 74  702.83MB Lead Data 48X   [Msi]
+97 26 54  79 59 74  80 48x "Lead Data Inc."  [Gig]
+97 26 54  79 59 74  LeadData   [Aopen]
+97 26 54  79 59 74  Lead data  [Btc]
+97 26 54  79 59 74  Lead Data CD-R 48X 702.83MB  [Mits]
+97 26 56  79 59 74  80 52x "Lead Data Inc."  [Gig]
+97 26 56  79 59 74  LeadData   [Aopen]
+97 26 56  79 59 74  Lead data  [Btc]
+97 26 57  79 59 74  80 52x "Lead Data Inc."  [Gig]
+97 26 57  79 59 74  MIRAGE   [Aopen]
+
+"CMC Magnetics Corporation"
+97 26 60  74 41 50  74 32x "Daxon Technology Inc." [Gig]
+97 26 61  79 59 74  80 32x "CMC Magnetics Corporation"  [Gig]
+97 26 65  21 59 74  Verbatim 8mm CD-RW 2-4X 193.06MB  [Mits]
+97 26 65  24 30 00  215.04MB Memorex(CMC)8cm 4X   [Msi]
+97 26 65  24 30 00  Bi-Winner 8cm HS-RW 4-8X 215.04MB  [Mits]
+97 26 65  24 30 00  Memorex 8cm CD-RW 4X 215.04MB  [Mits]
+97 26 65            4x "CMC Magnetics Corporation"  [Gig]
+97 26 65  74 12 00  PLEXTOR   [Aopen]
+97 26 65  74 59 64  658.89MB CMC 16X   [Msi]
+97 26 65  74 59 64  CMC   [Aopen]
+97 26 65  75 00 00  658.89MB YAMAHA(CMC) 4-10X   [Msi]
+97 26 65  75 00 00  658.89MB YAMAHA(CMC) N/A 4-10X   [Msi]
+97 26 65  75 00 00  74 12X "CMC Magnetics Corporation"  [Gig]
+97 26 65  75 00 00  CMC   [Aopen]
+97 26 65  75 00 00  CMC CD-RW 4X 658.89MB  [Mits]
+97 26 65  79 59 64  CMC   [Aopen]
+97 26 65  79 59 74  702.83MB Melody(CMC) 10X   [Msi]
+97 26 65  79 59 74  702.83MB Office DEPOT(CMC) 1-4X   [Msi]
+97 26 65  79 59 74  702.83MB Philips(CMC) 4-12X   [Msi]
+97 26 65  79 59 74  702.83MB Philips(CMC) N/A 4-12X   [Msi]
+97 26 65  79 59 74  CMC   [Aopen]
+97 26 65  79 59 74  CMC CD-RW 4X 702.83MB  [Mits]
+97 26 65  79 59 74  Office DEPOT CD-RW 1-4X 702.83MB  [Mits]
+97 26 66  23 00 00  CMC  [Btc]
+97 26 66  23 59 74  CMC  [Btc]
+97 26 66  75 00 00  74 40x "CMC Magnetics Corporation"  [Gig]
+97 26 66  75 00 00  CMC   [Aopen]
+97 26 66  75 10 00  CMC   [Aopen]
+97 26 66  75 10 00  CMC  [Btc]
+97 26 66  75 10 00  CMC CD-R 52X 660.35MB  [Mits]
+97 26 66  79 59 71  702.83MB CMC 52X   [Msi]
+97 26 66  79 59 71  702.83MB eMARK(CMC) 48X   [Msi]
+97 26 66  79 59 71  702.83MB imation(CMC) 48X   [Msi]
+97 26 66  79 59 71  702.83MB imation(CMC) 48X   [Msi]
+97 26 66  79 59 71  80 52x "CMC Magnetics Corporation"  [Gig]
+97 26 66  79 59 71  CMC  [Btc]
+97 26 66  79 59 71  CMC CD-R 52X 702.83MB  [Mits]
+97 26 66  79 59 71  CMC,MEMOREX   [Aopen]
+97 26 66  79 59 73  702.83MB CMC 52X   [Msi]
+97 26 66  79 59 73  702.83MB HyperMedia(CMC) 52X   [Msi]
+97 26 66  79 59 73  702.83MB imation(CMC) 48X   [Msi]
+97 26 66  79 59 73  702.83MB imation(CMC) 48X   [Msi]
+97 26 66  79 59 73  702.83MB Melody (CMC) 40X   [Msi]
+97 26 66  79 59 73  702.83MB Melody(CMC) 40X   [Msi]
+97 26 66  79 59 73  702.83MB Samsung(CMC) 48X   [Msi]
+97 26 66  79 59 73  80 52x "CMC Magnetics Corporation"  [Gig]
+97 26 66  79 59 73  CMC   [Aopen]
+97 26 66  79 59 73  CMC  [Btc]
+97 26 66  79 59 73  CMC CD-R 52X 702.83MB  [Mits]
+97 26 66  79 59 73  Imation CD-R 48X 702.83MB  [Mits]
+97 26 66  79 59 73  Shintaro CD-R 40X 702.83MB  [Mits]
+97 26 66  79 59 73  Techworks CD-R 48X 702.83MB  [Mits]
+97 26 66  79 59 74  702.83MB Bi-Winner(CMC)99min 40X   [Msi]
+97 26 66  79 59 74  702.83MB Bi-Winner(CMC)99min 40X   [Msi]
+97 26 66  79 59 74  702.83MB Memorex(CMC) 48X   [Msi]
+97 26 66  79 59 74  702.83MB PHILIPS(CMC) 40X   [Msi]
+97 26 66  79 59 74  702.83MB PHILIPS(CMC) Multi Speed   [Msi]
+97 26 66  79 59 74  80 16x "CMC Magnetics Corporation"  [Gig]
+97 26 66  79 59 74  CMC   [Aopen]
+97 26 66  79 59 74  CMC  [Btc]
+97 26 67  75 00 00  658.89MB CMC 24X   [Msi]
+97 26 67  75 00 00  74 24x "CMC Magnetics Corporation"  [Gig]
+97 26 67  75 00 00  CMC US-RW 24X 658.89MB  [Mits]
+97 26 67  79 59 64  80 32X "CMC Magnetics Corporation"  [Gig]
+
+"Ricoh Company Limited"
+D "DIGITAL STORAGE TECHNOLOGY CO.,LTD"
+97 27 00            4x "Ricoh Company Limited"  [Gig]
+97 27 00  74 12 00  651.86MB RICOH N/A 4-10X   [Msi]
+97 27 00  74 12 00  651.86MB Sony(Digital Storage) 4X-10X   [Msi]
+97 27 00  74 12 00  651.86MB Sony(Digital Storage) 4X-10X   [Msi]
+97 27 00  74 12 00  74 10X "Ricoh Company Limited"  [Gig]
+97 27 00  74 12 00  74 24x "Ricoh Company Limited"  [Gig]
+97 27 00  74 12 00  RICOH   [Aopen]
+97 27 00  74 12 00  Ricoh HS-RW 4X-10X 651.86MB  [Mits]
+97 27 00  74 12 00  Sony HS-RW 4X-10X 651.86MB  [Mits]
+97 27 00  75 00 00  74 32x "Digital Storage Techology"  [Gig]
+97 27 00  79 59 74  702.83MB Laser 48X   [Msi]
+97 27 00  79 59 74  80 40x "Digital Storage Techology"  [Gig]
+97 27 00  79 59 74  Csita   [Aopen]
+97 27 00  79 59 74  RICOH   [Aopen]
+97 27 06  79 59 72  Digital Storage CD-R 52X 53.318MB  [Mits]
+97 27 06  79 59 72  DST   [Aopen]
+97 27 06  79 59 73  702.83MB Digital Storage 32X   [Msi]
+97 27 06  79 59 73  702.83MB Digital Storage 52X   [Msi]
+97 27 06  79 59 73  DST  [Btc]
+97 27 06  79 59 74  80 40x "Digital Storage Techology"  [Gig]
+97 27 06  79 59 74  DST   [Aopen]
+
+"Plasmon Data systems Ltd"
+97 27 10  21 30 00  188.67MB Plasmon 4-10X   [Msi]
+97 27 10  21 30 00  Ritek 8cm HS-RW 4-10X 188.67MB  [Mits]
+97 27 10            4x "Ritek Corp"  [Gig]
+97 27 10  74 41 00  656.10MB TDK(Plasmon) 4X-10X   [Msi]
+97 27 10  74 41 00  74 12X "Ritek Corp"  [Gig]
+97 27 10  74 41 00  EMTEC CD-RW 1-4X 656.10MB  [Mits]
+97 27 10  74 41 00  Ritek   [Aopen]
+97 27 10  74 41 00  TDK HS-RW 4-10X 651.86MB  [Mits]
+97 27 11  74 41 00  Ritek   [Aopen]
+97 27 11  74 41 01  656.10MB Plasmon 16X   [Msi]
+97 27 12  74 41 00  656.10MB RiDATA(Plasmon) 24X   [Msi]
+97 27 12  74 41 00  656.10MB Riteck co.  24X   [Msi]
+97 27 12  74 41 00  74 24x "Ritek Corp"  [Gig]
+97 27 12  74 41 00  Plasmon US-RW 24X 656.10MB  [Mits]
+97 27 18  79 59 74  702.83MB ALPHAPET(Plasmon)() 1-40X   [Msi]
+97 27 18  79 59 74  702.83MB MANIA(Plasmon)() 48X   [Msi]
+97 27 18  79 59 74  80 52x "Plasmon Data systems Ltd"  [Gig]
+97 27 18  79 59 74  Plasmon   [Aopen]
+97 27 18  79 59 74  Plasmon  [Btc]
+97 27 19  79 59 74  4M   [Aopen]
+97 27 19  79 59 74  80 48x "Plasmon Data systems Ltd"  [Gig]
+
+"Princo Corporation"
+97 27 21  79 59 74  Princo Co CD-RW 4X 702.83MB  [Mits]
+97 27 28            4x "Princo Corporation"  [Gig]
+97 27 28  74 50 01  74 40x "Princo Corporation"  [Gig]
+97 27 28  74 50 01  Princo   [Aopen]
+97 27 28  79 59 74  702.83MB Princo 2-48X   [Msi]
+97 27 28  79 59 74  702.83MB Princo 52X   [Msi]
+97 27 28  79 59 74  80 52x "Princo Corporation"  [Gig]
+97 27 28  79 59 74  Princo   [Aopen]
+97 27 28  79 59 74  Princo  [Btc]
+97 27 29  79 59 74  80 12X "Princo Corporation"  [Gig]
+97 27 29  79 59 74  Princo   [Aopen]
+97 27 29  79 59 74  Princo Co HS-RW 4-12X 702.83MB  [Mits]
+
+"Pioneer"
+97 27 30            PIONEER [Hij]
+
+"Eastman Kodak Company"
+97 27 45  74 05 01  74 32x "Eastman Kodak Company"  [Gig]
+
+"Mitsui Chemicals Inc."
+97 27 55  74 05 10  74 16x "Mitsui Chemicals Inc."  [Gig]
+97 27 56  74 05 11  74 16x "Mitsui Chemicals Inc."  [Gig]
+97 27 56  79 59 74  80 24x "Mitsui Chemicals Inc."  [Gig]
+97 27 57  79 59 74  80 40x "Mitsui Chemicals Inc."  [Gig]
+97 27 57  79 59 74  MITSUI   [Aopen]
+97 27 58  74 05 13  MAM-A   [Aopen]
+97 27 58  79 59 74  80 52x "Mitsui Chemicals Inc."  [Gig]
+97 27 58  79 59 74  Mitsui   [Aopen]
+97 27 58  79 59 74  TDK  [Btc]
+
+"Ricoh Company Limited"
+97 27 66  74 12 00  RICOH  [Btc]
+97 27 66  74 12 02  74 48x "Ricoh Company Limited"  [Gig]
+97 27 66  74 12 02  Ricoh   [Aopen]
+97 27 66  74 12 03  74 52x "Ricoh Company Limited"  [Gig]
+97 27 66  74 12 03  Ritek  [Btc]
+97 27 66  74 12 03  Ritek,RS   [Aopen]
+97 27 66  79 59 71  702.82MB RICOH 40X   [Msi]
+97 27 66  79 59 71  80 48x "Ricoh Company Limited"  [Gig]
+97 27 66  79 59 71  RICOH  [Btc]
+97 27 66  79 59 71  RICOH CD-R 40X 702.82MB  [Mits]
+97 27 66  79 59 71  Ritek,RS   [Aopen]
+97 27 66  79 59 72  80 48x "Ricoh Company Limited"  [Gig]
+97 27 66  79 59 72  Ricoh   [Aopen]
+97 27 66  79 59 74  RICOH  [Btc]
+
+"Gigastorage Corporation"
+97 28 12  79 59 72  702.83MB Gigastorage 52X   [Msi]
+97 28 12  79 59 72  80 52x "Gigastorage Corporation"  [Gig]
+97 28 12  79 59 72  GigaSto   [Aopen]
+97 28 12  79 59 74  702.83MB Gigastorage 40X   [Msi]
+97 28 12  79 59 74  80 48x "Gigastorage Corporation"  [Gig]
+97 28 12  79 59 74  GigaSto, MaxMax   [Aopen]
+97 28 12  79 59 74  Gigastorage  [Btc]
+97 28 15            4x "Gigastorage Corporation" [Gig]
+97 28 15            4x "Nan-Ya" [Gig]
+97 28 15  74 12 00  74 10X "Gigastorage Corporation"  [Gig]
+97 28 15  74 12 00  CURSOR   [Aopen]
+97 28 15  79 59 72  702.83MB Gigastorage 52X   [Msi]
+97 28 15  79 59 72  702.83MB MaxMax (Gigastorage) 40X   [Msi]
+97 28 15  79 59 72  GigaSto   [Aopen]
+97 28 15  79 59 72  Gigastorage  [Btc]
+97 28 15  79 59 74  702.83MB Gigastorage 40X   [Msi]
+97 28 15  79 59 74  80 48x "Gigastorage Corporation"  [Gig]
+97 28 15  79 59 74  80 52x "Gigastorage Corporation"  [Gig]
+97 28 15  79 59 74  GigaSto   [Aopen]
+97 28 15  79 59 74  Gigastorage  [Btc]
+97 28 15  79 59 74  Gigastorage HS-RW 4X-8X 702.83MB  [Mits]
+
+"Multi Media Masters&Machinary SA"
+97 28 22  79 59 67  80 24x "Multi Media Masters&Machinary SA"  [Gig]
+97 28 22  79 59 67  King   [Aopen]
+97 28 22  79 59 67  Multi Media CD-R 48X 702.82MB  [Mits]
+97 28 26  79 59 74  702.83MB Mmirex(Multi Media) 24X   [Msi]
+97 28 26  79 59 74  80 52x "Multi Media Masters&Machinary SA"  [Gig]
+97 28 26  79 59 74  KingPro   [Aopen]
+
+"Ritek Corp"
+97 31 01  74 45 00  74 24x "Ritek Corp"  [Gig]
+97 31 01  74 45 00  Ritek  [Btc]
+97 31 01  74 45 01  656.68MB Ritek Co.  40X   [Msi]
+97 31 01  74 45 01  656.68MB Ritek Co.  52X   [Msi]
+97 31 01  74 45 01  74 52x "Ritek Corp"  [Gig]
+97 31 01  74 45 01  Ritek,74   [Aopen]
+97 31 01  74 45 01  Ritek  [Btc]
+97 31 07  21 15 01  Ritek  [Btc]
+97 31 07  74 45 00  Ritek  [Btc]
+97 31 07  74 45 01  656.69MB Ritek Co.  48X   [Msi]
+97 31 07  74 45 01  656.69MB TDK(Ritek) 40X   [Msi]
+97 31 07  74 45 01  74 52x "Ritek Corp"  [Gig]
+97 31 07  74 45 01  Ritek   [Aopen]
+97 31 07  74 45 01  Ritek  [Btc]
+97 31 07  74 45 02  Ritek  [Btc]
+
+"Grand Advance Technology Sdn. Bhd."
+97 31 35  79 59 74  GAT   [Aopen]
+
+"TDK Corporation"
+97 32 00  74 59 00  74 16x "TDK Corporation"  [Gig]
+97 32 01  74 59 74  74 24X "TDK Corporation"  [Gig]
+97 32 05  74 59 00  74 52X "TDK Corporation"  [Gig]
+97 32 05  74 59 00  TDK   [Aopen]
+
+"Prodisc Technology Inc."
+97 32 10  79 59 74  702.83MB Prodisc 12X   [Msi]
+97 32 10  79 59 74  702.83MB Smartbuy(Prodisc) 8-12X   [Msi]
+97 32 10  79 59 74  702.83MB Smartbuy(Prodisc) N/A 8-12X   [Msi]
+97 32 10  79 59 74  80 12X "Prodisc Technology Inc."  [Gig]
+97 32 10  79 59 74  PRODISC   [Aopen]
+97 32 10  79 59 74  Smartbuy HS-RW 8-12X 702.83MB  [Mits]
+97 32 11  22 00 00  Prodisc CD-RW 1-4X 193.07MB  [Mits]
+97 32 11            4x "Prodisc Technology Inc."  [Gig]
+97 32 11  79 59 74  Prodisc CD-RW 1X-4X 702.83MB  [Mits]
+97 32 12  79 59 74  80 10X "Prodisc Technology Inc."  [Gig]
+97 32 12  79 59 74  PRODISC   [Aopen]
+97 32 13  79 59 74  (PRODISC)   [Aopen]
+97 32 19  22 00 00  Prodisc  [Btc]
+97 32 19  74 30 01  74 52x "Prodisc Technology Inc."  [Gig]
+97 32 19  74 30 01  Prodisc   [Aopen]
+97 32 19  74 30 01  Prodisc  [Btc]
+97 32 19  79 59 71  702.83MB Mitsubishi (Prodisc) 52X   [Msi]
+97 32 19  79 59 71  702.83MB Prodise 52X   [Msi]
+97 32 19  79 59 71  80 52x "Prodisc Technology Inc."  [Gig]
+97 32 19  79 59 71  Prodisc   [Aopen]
+97 32 19  79 59 71  Prodisc  [Btc]
+97 32 19  79 59 72  654.49MB Prodise 48X   [Msi]
+97 32 19  79 59 72  654.49MB Prodise 48X   [Msi]
+97 32 19  79 59 72  702.83MB Digmaster(Prodisc) 40X   [Msi]
+97 32 19  79 59 72  702.83MB Digmaster(Prodisc) 48X   [Msi]
+97 32 19  79 59 72  702.83MB LG(Prodisc) 1-48X   [Msi]
+97 32 19  79 59 72  702.83MB Mitsubishi (Prodisc) Multi Speed    [Msi]
+97 32 19  79 59 72  702.83MB Prodise 48X   [Msi]
+97 32 19  79 59 72  80 52x "Prodisc Technology Inc."  [Gig]
+97 32 19  79 59 72  Mitsubishi CD-R Multi Speed 702.83MB  [Mits]
+97 32 19  79 59 72  Prodisc   [Aopen]
+97 32 19  79 59 72  Prodisc  [Btc]
+97 32 19  79 59 73  654.49MB Prodisc 40X   [Msi]
+97 32 19  79 59 73  702.83MB Media Market(Prodisc) 1-40X   [Msi]
+97 32 19  79 59 73  80 48x "Prodisc Technology Inc."  [Gig]
+97 32 19  79 59 73  Prodisc   [Aopen]
+97 32 19  79 59 73  Prodisc  [Btc]
+97 32 19  79 59 74  80 48x "Prodisc Technology Inc."  [Gig]
+97 32 19  79 59 74  Prodisc   [Aopen]
+97 32 19  79 59 74  Prodisc  [Btc]
+
+"Mitsubishi Chemical Corporation"
+97 34 21  74 43 00  74 24x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 21  74 43 00  MCC  [Btc]
+97 34 21  79 59 74  702.83MB Mitsubishi Multi Speed   [Msi]
+97 34 21  79 59 74  MCC  [Btc]
+97 34 21  79 59 74  MCC(Metal   [Aopen]
+97 34 22            4x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 22  74 43 00  656.40MB Mitsubishi N/A 1-4X   [Msi]
+97 34 22  74 43 00  74 32x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 22  74 43 00  MCC  [Btc]
+97 34 22  74 43 00  Mitsubishi CD-RW 1-4X 656.40MB  [Mits]
+97 34 22  79 59 74  702.83MB Mitsubishi 32X   [Msi]
+97 34 22  79 59 74  80 32x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 22  79 59 74  MCC  [Btc]
+97 34 22  79 59 74  Mitsubishi CD-RW 1-4X 702.83MB  [Mits]
+97 34 23  74 43 00  656.40MB Mitsubishi 4-10X   [Msi]
+97 34 23  74 43 00  74 10X "Mitsubishi Chemical Corporation"  [Gig]
+97 34 23  74 43 00  MCC   [Aopen]
+97 34 23  74 43 00  Mitsubishi HS-RW 4-10X 656.40MB  [Mits]
+97 34 23  74 43 00  Mitsubishi HS-RW 4-12X 656.40MB  [Mits]
+97 34 23  74 43 00  Verbatim HS-RW 4-12X 656.40MB  [Mits]
+97 34 23  74 43 01  656.40MB Mitsubishi 52X   [Msi]
+97 34 23  74 43 01  MCC   [Aopen]
+97 34 23  74 43 01  MCC  [Btc]
+97 34 23  74 43 01  Mitsubishi CD-R 52X 656.40MB  [Mits]
+97 34 23  79 59 73  702.83MB Mitsubishi 52X   [Msi]
+97 34 23  79 59 73  702.83MB Mitsubishi 52X   [Msi]
+97 34 23  79 59 73  702.83MB Mitsubishi   [Msi]
+97 34 23  79 59 73  702.83MB Verbatim(Mitsubishi) 48X   [Msi]
+97 34 23  79 59 73  702.83MB Verbatim(Mitsubishi) 48X   [Msi]
+97 34 23  79 59 73  702.83MB YAMAHA(Mitsubishi) 48X   [Msi]
+97 34 23  79 59 73  MCC   [Aopen]
+97 34 23  79 59 73  MCC  [Btc]
+97 34 23  79 59 73  Mitsubishi CD-R 52X 702.83MB  [Mits]
+97 34 23  79 59 73  Mitsubishi CD-R 52X 702.83MB  [Mits]
+97 34 23  79 59 74  702.83MB Mitsubishi 40X   [Msi]
+97 34 23  79 59 74  702.83MB Verbatim(Mitsubishi) 40X   [Msi]
+97 34 23  79 59 74  702.83MB Verbatim(Mitsubishi) N/A 4-10X   [Msi]
+97 34 23  79 59 74  80 48x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 23  79 59 74  MCC   [Aopen]
+97 34 23  79 59 74  MCC   [Aopen]
+97 34 23  79 59 74  MCC  [Btc]
+97 34 23  79 59 74  Mitsubishi HS-RW 12X 702.83MB  [Mits]
+97 34 23  79 59 74  Verbatim HS-RW 4-10X 702.83MB  [Mits]
+97 34 23  79 59 76  80 52x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 24  74 43 00  656.40MB Mitsubishi 24X   [Msi]
+97 34 24  74 43 00  74 24x "Mitsubishi Chemical Corporation"  [Gig]
+97 34 24  74 43 00  Mitsubishi US-RW 24X 656.40MB  [Mits]
+97 34 24  79 59 74  702.83MB Mitsubishi 24X   [Msi]
+97 34 24  79 59 74  Mitsubishi US-RW 24X 702.83MB  [Mits]
+97 34 24  79 59 74  Verbatim US-RW 24X 702.83MB  [Mits]
+97 34 25  74 43 00  656.40MB Mitsubishi(standard) 32X   [Msi]
+97 34 25  74 43 00  74 32x "Mitsubishi Chemical Corporation"  [Gig]
+
+"Mitsui Chemicals Inc."
+97 48 55  63 04 00  MCI(Mitsui) MTCDR63G  [Teac]
+97 48 55  63 04 00  MCI(MITSUI) MTCDR63G  [Edig]
+
+"TDK Corporation"
+97 49 00  63 52 00  TDK CD-R63S   [Teac]
+97 49 00  63 52 00  TDK CD-R63S   [Edig]
+
+
+-------------------------------------------------------------------------------
+
+                          DVD and BD Media IDs
+
+"UML"
+AML         003     UME  8X   [Hij]
+
+"BeAll Developers, Inc."
+BeAll000    P40     BeAll  4X   [Hij]
+BeAll G40001        BeAll  4X   [Hij]
+
+"CMC Magnetics Corporation"
+CMC MAG M01         CMC  16X   [Hij]
+CMC MAG F01         CMC  4X   [Hij]
+CMC MAG R01         CMC  2.5X   [Hij]
+CMC MAG W01         CMC  2.5x   [Hij]
+CMC MAG. AE1        CMC  8X   [Hij]
+CMC MAG. AF1        CMC  4X   [Hij]
+CMC MAG. AM1        CMC  12X   [Hij]
+CMCW02              CMC  2x   [Hij]
+CMC00RG200          CMC  2X   [Hij]
+CMCMAG              CMC  12X   [Hij]
+CMCMAG      BA2     CMC Magnetics Corporation 1-2X HTL 25GB (12cm)  [Blu]
+CMCMAG      BA3     CMC Magnetics Corporation 1-4X HTL 25GB (12cm)  [Blu]
+CMCMAG      BA5     CMC Magnetics Corporation 1-6X HTL 25GB (12cm)  [Blu]
+CMCMAG      CN2     CMC Magnetics Corporation 1-2X HTL 25GB(12cm)  [Blu]
+
+"Daxon Technology Inc. / Acer"
+DAXON 016           DAXON  8X   [Hij]
+DAXON       AZ3     DAXON  16X   [Hij]
+DAXON       CY3     DAXON  12X   [Hij]
+DAXON       D42/52  (user reported DVD+RW)
+Daxon       R2X     Daxon Technology Inc.  1-2X HTL 25GB(12cm)  [Blu]
+Daxon       R4X     Daxon Technology Inc.  1-4X HTL 25GB(12cm)  [Blu]
+
+"Fujifilm Holdings Corporation"
+FUJI                     Fujifilm Corporation [Blu]
+FUJIFILM02               FUJIFILM  4X   [Hij]
+FUJIFILM03               FUJIFILM  8X   [Hij]
+FUJIFILM04               FUJIFILM  12X   [Hij]
+
+"New Star Digital Co., Ltd."
+INFODISC    R20     NSD  8X   [Hij]
+INFODISC-R20        NSD  8X   [Hij]
+
+"InfoMedia Inc."
+INFOME      E20     INFOMEDIA INC.  1-2X   [Blu]
+INFOME      R30     INFOMEDIA  16X   [Hij]
+INFOME      R20     INFOMEDIA INC.  1-2X   [Blu]
+INFOME      R30     INFOMEDIA INC.  1-4X  [Blu]
+
+"Info Source Multi Media Ltd."
+ISMMBD      R01     Info Source Multi Media Ltd.  1-4X HTL 12cm  [Blu]
+ISMMBD      R02     Info Source Multi Media Ltd.  1-6X HTL 12cm  [Blu]
+ISMMBD      RE1     Info Source Multi Media Ltd.  1-2X HTL 12cm  [Blu]
+
+"JVC Limited"
+JVC0VictorD7        JVC  4X   [Hij]
+JVC1Victord7        JVC  6X   [Hij]
+JVC/VictorT7        JVC  1x   [Hij]
+JVC_VictorW7        JVC  2x   [Hij]
+JVCRE1              Victor Company of Japan, Limited [Blu]
+
+"AMC"
+KIC01RG160          AMC  12X   [Hij]
+
+"Lead Data Inc."
+LD          M04     LEADDATA  8X   [Hij]
+LD          S04     LEADDATA  8X   [Hij]
+LEADDATA01          LEADDATA  4X   [Hij]
+
+"LG Electronics"
+LGE04               LG  2X   [Hij]
+LGEBRA      S04     LG Electronics Inc.  1-4X HTL 12cm (25GB)  [Blu]
+LGEBRA      S06     LG Electronics Inc.  1-6X HTL 12cm (25GB)  [Blu]
+LGEBRE      S01     LG Electronics, Inc.  1-2X HTL 12cm(25GB)  [Blu]
+LGEP16      001     LGE  8X   [Hij]
+
+"Mitsui Advanced Media, Inc. Europe"
+MAM         M02     MAM-E  8X   [Hij]
+
+"Hitachi Maxell Ltd."
+MAXELL      001     HITACHI MAXELL  4X   [Hij]
+MAXELL      002     HITACHI MAXELL  8X   [Hij]
+MAXELL      003     HITACHI MAXELL  16X   [Hij]
+MAXELL      ES1     Hitachi Maxell, Ltd.  1-2X HTL 12cm and 8cm  [Blu]
+MAXELL      RS1     Hitachi Maxell, Ltd.  1-2X HTL 12cm and 8cm  [Blu]
+
+"Moser Baer India Limited"
+MBI         E02     Moser Baer India Ltd 1-2X HTL 25GB  [Blu]
+MBI         F01     Moser Baer India Ltd 1-2X LTH 25GB  [Blu]
+MBI         F02     Moser Baer India Ltd 1-4X LTH 25GB  [Blu]
+MBI         R02     Moser Baer India Ltd 1-2X HTL 25GB  [Blu]
+MBI         R04     Moser Baer India Ltd 1-4X HTL 25GB  [Blu]
+MBI         R06     Moser Baer India Ltd 1-6X HTL 25GB  [Blu]
+MBI 01RG20          Moser Bear India  4X   [Hij]
+MBI 01RG40          MBI  16X   [Hij]
+MBI 03RG30          MBI  8X   [Hij]
+MBI 03RG40          MBI  12X   [Hij]
+MBIPG101            Moser Bear India  4X   [Hij]
+MBIPG101    R04     MBI  8X   [Hij]
+MBIPG101    R05     MBI  16X   [Hij]
+
+"Mitsubishi Chemical Corporation"
+MCC         002     MKM  4X   [Hij]
+MCC         003     MKM  8X   [Hij]
+MCC 00RG200         MKM  2X   [Hij]
+MCC 01RG20          MKM  4X   [Hij]
+MCC 01RW11n9        MKM  2x   [Hij]
+MCC 01RW4X          MKM  4X   [Hij]
+MCC 02RG20          MKM  8X   [Hij]
+MCC 03RG20          MKM  16X   [Hij]
+MCC         A01     MKM  2.5x   [Hij]
+
+"Mitsui Chemicals Inc."
+MCI         G01     Mitsui  2X   [Hij]
+
+"Panasonic Corporation"
+MEI         RA1     Panasonic Corporation 1-6X HTL 12cm  [Blu]
+MEI         RB1     Panasonic Corporation 1-6X HTL 12cm  [Blu]
+MEI         T01     Panasonic Corporation 1-2X HTL 12cm  [Blu]
+MEI         T02     Panasonic Corporation 1-4X HTL 12cm  [Blu]
+MEI 00V001          MATSUSHITA EI  2X   [Hij]
+MEI 00V002          MATSUSHITA EI  4X   [Hij]
+
+"Mitsubishi Kagaku Media Co."
+MKM         001     MKM  6X   [Hij]
+MKM         003     MKM  8X   [Hij]
+MKM         A02     MKM  4x   [Hij]
+MKM 01RD30          MKM  6X   [Hij]
+MKM01RW6X01         MKM  6X   [Hij]
+
+"Mitsubishi Kagaku Media Co."
+MMC         001     MKM  2.5X   [Hij]
+
+"Hitachi Maxell Ltd."
+MXL         RG01    MAXELL  2X   [Hij]
+MXL RG02            MAXELL  4X   [Hij]
+MXL RG03            MAXELL  8X   [Hij]
+MXL RG04            MAXELL  16X   [Hij]
+
+"Nan-Ya Plastics Corporation"
+NANYA       ALX     NANYA  8X   [Hij]
+
+"NESA International Inc."
+NSDR40              NSD  8X   [Hij]
+
+"Optodisc Technology Corporation"
+OPTODISC    F16     OPTODISC  12X   [Hij]
+OPTODISC    OP1     OPTODISC  2.5x   [Hij]
+OPTODISC    OP1     OPTODISC  2.5X   [Hij]
+OPTODISC    OR8     OPTODISC  8X   [Hij]
+OPTODISCR004        OPTODISC  4X   [Hij]
+OPTODISCR008        OPTODISC  8X   [Hij]
+OPTODISC    R01     OPTODISC  16X   [Hij]
+OPTODISC    R02     OPTODISC  4X   [Hij]
+OPTODISCR016        OPTODISC  8X   [Hij]
+
+"Optodisc Technology Corporation"
+OTCBDR      001     Optodisc Technology Corporation 1-4X HTL 25GB (12cm)  [Blu]
+OTCBDR      002     Optodisc Technology Corporation 1-6X HTL 25GB (12cm)  [Blu]
+OTCBRE      001     Optodisc Technology Corporation 1-2X HTL 25GB (12cm)  [Blu]
+
+"Moser Baer India Limited"
+PHILIP      R02     Moser Baer India Ltd 1-2X HTL 25GB  [Blu]
+PHILIP      R04     Moser Baer India Ltd 1-4X HTL 25GB  [Blu]
+PHILIP      W02     Moser Baer India Ltd 1-2X HTL 25GB  [Blu]
+
+"Philips"
+PHILIPS     C16     PHILIPS  12X   [Hij]
+PHILIPS     CD2     CMC (PHILIPS)  2.5X   [Hij]
+
+"Princo Corporation"
+PRINCO              PRONCO  4X   [Hij]
+
+"Prodisc Technology Inc."
+ProdiscF02          PRODISC  12X   [Hij]
+PRODISC     R01     PRODISC  2.5X   [Hij]
+Prodisc     R02     PRODISC  4X   [Hij]
+Prodisc     R03     PRODISC  8X   [Hij]
+Prodisc     R04     PRODISC  16X   [Hij]
+Prodisc     R05     PRODISC  16X   [Hij]
+ProdiscS03          PRODISC  4X   [Hij]
+ProdiscS04          PRODISC  8X   [Hij]
+ProdiscS05          PRODISC  16X   [Hij]
+PRODISC     W01     PRODISC  2.5x   [Hij]
+
+"Pioneer"
+PVC001001           PIONEER VIDEO  2X   [Hij]
+PVCR001002          PIONEER VIDEO  4X   [Hij]
+PVCW00D002K9        PVC  2x   [Hij]
+
+"Ricoh Company Limited"
+RICOHJPN    D00     RICOH  2.5X   [Hij]
+RICOHJPN    D01     RICOH  2.5X   [Hij]
+RICOHJPN    R00     RICOHJPN  2.5X   [Hij]
+RICOHJPN    R01     RICOH  4X   [Hij]
+RICOHJPN    R02     RICOH  12X   [Hij]
+RICOHJPN    R03     RICOH  16X   [Hij]
+RICOHJPN    W01     RICOH  2.5x   [Hij]
+RICOHJPN    W11     RICOH  4x   [Hij]
+RICOHJPN    W21     RICOH  8X   [Hij]
+
+"Ritek Corp"
+RITEK       001     Ritek  2.5x   [Hij]
+RITEK       BR1     RITEK CORPORATION 1-2X HTL 25GB  [Blu]
+RITEK       BR2     RITEK CORPORATION 1-4X HTL 25GB  [Blu]
+RITEK       BR3     RITEK CORPORATION 1-6X HTL 25GB  [Blu]
+RITEK       D01     RITEK  2.5X   [Hij]
+RITEK       DR2     RITEK CORPORATION 1-4X HTL 50GB  [Blu]
+RITEK       DW1     RITEK CORPORATION 1-2X HTL 50GB  [Blu]
+RITEK       F16     RITEK  8X   [Hij]
+RITEKF1             RITEK  12X   [Hij]
+RITEK G03           RITEK  2X   [Hij]
+RITEK G04           RITEK  4X   [Hij]
+RITEKG05            RITEK  4X   [Hij]
+RITEKG06            RITEK  8X   [Hij]
+RITEK M02           RITEK  4X   [Hij]
+RITEKM16            RITEK  12X   [Hij]
+RITEK       R01     RITEK  2.5X   [Hij]
+RITEK       R02     RITEK  4X   [Hij]
+RITEK       R03     RITEK  8X   [Hij]
+RITEK       R04     RITEK  12X   [Hij]
+RITEK       R05     RITEK  16X   [Hij]
+RITEKW01            RiTEK  2x   [Hij]
+RITEKW06            RITEK  6X   [Hij]
+
+"Sony Corporation"
+SONY                SONY  2X   [Hij]
+SONY        D11     SONY  8X   [Hij]
+SONY        D21     SONY  16X   [Hij]
+SONY        ED4     Sony Corporation 1-2X HTL 50GB  [Blu]
+SONY        ES1     Sony Corporation 1-2X 25GB  [Blu]
+SONY        NO1     Sony Corporation 1-2X HTL 25GB  [Blu]
+SONY        NS1     Sony Corporation 1-2X HTL 25GB  [Blu]
+SONY        NS2     Sony Corporation 1-4X HTL 25GB  [Blu]
+SONY        NN1     Sony Corporation 1-2X HTL 25GB  [Blu]
+SONY        NN2     Sony Corporation 1-4X HTL 25GB  [Blu]
+SONY        NN3     Sony Corporation 1-6X HTL 25GB  [Blu]
+SONY04D1            SONY  4X   [Hij]
+SONY08D1            SONY  12X   [Hij]
+SONY16D1            SONY  16X   [Hij]
+
+"TDK Corporation"
+TDK         001     TDK  4X   [Hij]
+TDK         002     TDK  8X   [Hij]
+TDK         003     TDK  16X   [Hij]
+TDKBLD      RBA     TDK Corporation 1-2X HTL 12cm  [Blu]
+TDKBLD      RBB     TDK Corporation 1-4X HTL 12cm  [Blu]
+TDKBLD      RBD     TDK Corporation 1-6x HTL 12cm (25GB)  [Blu]
+TDKBLD      RDA     TDK Corporation 1-2X HTL 8cm  [Blu]
+TDKBLD      RFA     TDK Corporation 1-2X HTL 12cm  [Blu]
+TDKBLD      RFB     TDK Corporation 1-4X HTL 12cm  [Blu]
+TDKBLD      RFD     TDK Corporation 1-6x HTL 12cm (50GB)  [Blu]
+TDKBLD      WBA     TDK Corporation 1-2X HTL 12cm  [Blu]
+TDKBLD      WDA     TDK Corporation 1-2X HTL 8cm  [Blu]
+TDKBLD      Wfa     TDK Corporation 1-2X HTL 12cm  [Blu]
+TDK502sakuM3        TDK  2x   [Hij]
+TDK601saku          TDK  4X   [Hij]
+TDKG02000000        TDK  2X   [Hij]
+
+"TDK Corporation"
+TTG01               TDK  4X   [Hij]
+TTG02               TDK  8X   [Hij]
+TTH01               TDK  8X   [Hij]
+TTH02               TDK  12X   [Hij]
+
+"Taiyo Yuden Company Limited"
+TYG01               TAIYO YUDEN  4X   [Hij]
+TYG02               TAIYO YUDEN  12X   [Hij]
+TYG03               TAIYO YUDEN  16X   [Hij]
+TYG11               TAIYO YUDEN  DVD-R DL 8x
+TYG-BD      Y01     TAIYO YUDEN Co., Ltd.  1-2X LTH   [Blu]
+TYG-BD      Y03     TAIYO YUDEN Co., Ltd.   1-4X LTH   [Blu]
+
+"UmeDisc Ltd. HK"
+UMEDISC     DL1     Elite DVD+R DL [User report feb 2012]
+
+"Unifino Inc."
+UTJR001001          UNIFINO  4X   [Hij]
+
+"Mitsubishi Kagaku Media Co."
+VERBAT      IM0     Mitsubishi Kagaku Media, Co., Ltd.  1-2X 25GB (12cm) and 7.8GB (8cm)  [Blu]
+VERBAT      IM1     Mitsubishi kagaku Media, Co., ltd.  1-2X HTL 50GB(12cm)  [Blu]
+VERBAT      IMa     Mitsubishi Kagaku Media, Co., Ltd.  1-2X HTL 25GB (12cm) and 7.8GB (8cm)  [Blu]
+VERBAT      IMb     Mitsubishi Kagaku Media, Co., Ltd.  1-2X HTL 50GB (12cm) and 15.6GB (8cm)  [Blu]
+VERBAT      IMc     Mitsubishi Kagaku Media, Co., Ltd.  1-4X HTL 25GB (12cm) and 7.8GB (8cm)  [Blu]
+VERBAT      IMd     Mitsubishi Kagaku Media, Co., Ltd.  1-4X HTL 50GB (12cm)  [Blu]
+VERBAT      IMe     Mitsubishi Kagaku Media, Co., Ltd.  1-6X HTL 25GB (12cm)  [Blu]
+VERBAT      IMf     Mitsubishi Kagaku Media, Co., Ltd.  1-6X HTL 50GB (12cm)  [Blu]
+VERBAT      IMu     Mitsubishi Kagaku Media, Co., Ltd.  1-6X LTH 25GB (12cm)  [Blu]
+VERBAT      IMv     Mitsubishi Kagaku Media, Co., Ltd.  1-4X LTH 25GB (12cm)  [Blu]
+VERBAT      IMw     Mitsubishi Kagaku Media, Co., Ltd.  1-2X LTH 25GB (12cm)  [Blu]
+
+"Taiyo Yuden Company Limited"
+YUDEN000    T01     TAIYO YUDEN  4X   [Hij]
+YUDEN000    T02     TAIYO YUDEN  12x   [Hij]
+YUDEN000    T03     TAIYO YUDEN  16X   [Hij]
+

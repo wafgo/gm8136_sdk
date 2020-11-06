@@ -1,0 +1,9 @@
+[GM_IspTool v1.3.10.0]
+1. DRC: enhance Global Gamma tuning and support Mamual mode and Fast Tune
+2. Auto Adjustment: enhance Post NR tuning
+3. CE: fix tuning with CE disable
+
+[GM_IspTool v1.3.6.0]
+1. Add Config Switch.
+2. Remove "Init" and "Restore" of Dynamic Range, Gamma, and Color Mapping
+3. Add Pause Image

@@ -1,0 +1,119 @@
+/**
+   @author Mario Danic, Thomas Schmitt
+
+   @mainpage Libburn Documentation Index
+
+   @section intro Introduction
+
+Libburnia is an open-source project for reading, mastering and writing
+optical discs. This page is about its capability to handle optical media.
+For now this means CD-R, CD-RW, DVD-RAM, DVD+RW, DVD+R, DVD+R/DL, DVD-RW,
+DVD-R, DVD-R/DL, BD-R, BD-RE.
+
+Our scope is currently Linux 2.4 and 2.6, or FreeBSD, or Solaris . For ports
+to other systems we would need : login on a development machine resp.
+an OS ithat is installable on an AMD 64-bit PC, advise from a system person
+about the equivalent of Linux sg or FreeBSD CAM, volunteers for testing of
+realistic use cases.
+
+libburn is the library by which preformatted data get onto optical media.
+Its code is independent of cdrecord. Its DVD capabilities are learned from
+studying the code of dvd+rw-tools and MMC-5 specs. No code but only the pure
+SCSI knowledge has been taken from dvd+rw-tools, though.
+
+cdrskin is a limited cdrecord compatibility wrapper for libburn.
+cdrecord is a powerful GPL'ed burn program included in Joerg Schilling's
+cdrtools. cdrskin strives to be a second source for the services traditionally
+provided by cdrecord. Additionally it provides libburn's DVD/BD capabilities,
+where only -sao is compatible with cdrecord.
+cdrskin does not contain any bytes copied from cdrecord's sources.
+Many bytes have been copied from the message output of cdrecord runs, though.
+See cdrskin/README for more.
+
+The burn API example of libburn is named test/libburner.c . The API for media
+information inquiry is demonstrated in test/telltoc.c .
+Explore these examples if you look for inspiration.
+
+SONAME:
+libburn.so.4 (since 0.3.4, March 2007),
+
+
+   @section using Using libburn
+
+Our build system is based on autotools.
+User experience tells us that you will need at least autotools version 1.7.
+
+To build libburn and its companion applications go into its toplevel directory
+and execute
+
+-  ./bootstrap  (needed if you downloaded from SVN)
+
+-  ./configure
+
+-  make
+
+To make the libraries accessible for running resp. developing applications 
+
+-  make install
+
+
+@section libburner Libburner
+
+libburner is a minimal demo application for the library libburn 
+(see: libburn/libburn.h) as provided on  http://libburnia-project.org .
+It can list the available devices, can burn to recordable CD, DVD, or BD,
+can blank a CD-RW or DVD-RW, and can format unformatted DVD-RW, BD-R, or BD-RE. 
+
+It's main purpose, nevertheless, is to show you how to use libburn and also
+to serve the libburnia team as reference application. libburner does indeed
+define the standard way how above gestures can be implemented and stay upward
+compatible for a good while.
+
+   @subsection libburner-help Libburner --help
+<pre>
+Usage: test/libburner
+       [--drive address|driveno|"-"]  [--audio]
+       [--blank_fast|--blank_full|--format]  [--try_to_simulate]
+       [--multi]  [one or more imagefiles|"-"]
+Examples
+A bus scan (needs rw-permissions to see a drive):
+  test/libburner --drive -
+Burn a file to drive chosen by number, leave appendable:
+  test/libburner --drive 0 --multi my_image_file
+Burn a file to drive chosen by persistent address, close:
+  test/libburner --drive /dev/hdc my_image_file
+Blank a used CD-RW (is combinable with burning in one run):
+  test/libburner --drive /dev/hdc --blank_fast
+Blank a used DVD-RW (is combinable with burning in one run):
+  test/libburner --drive /dev/hdc --blank_full
+Format a DVD-RW, BD-RE or BD-R:
+  test/libburner --drive /dev/hdc --format
+Burn two audio tracks (to CD only):
+  lame --decode -t /path/to/track1.mp3 track1.cd
+  test/dewav /path/to/track2.wav -o track2.cd
+  test/libburner --drive /dev/hdc --audio track1.cd track2.cd
+Burn a compressed afio archive on-the-fly:
+  ( cd my_directory ; find . -print | afio -oZ - ) | \
+  test/libburner --drive /dev/hdc -
+To be read from *not mounted* media via: afio -tvZ /dev/hdc
+</pre>
+libburner has two companions, telltoc and dewav, which help to perform some
+peripheral tasks of burning.
+
+telltoc prints a table of content (sessions, tracks and leadouts), it tells
+about type and state of media, and also is able to provide the necessary
+multi-session information for program mkisofs option -C. Especially helpful
+are its predictions with "Write multi" and "Write modes" where availability
+of "TAO" indicates that tracks of unpredicted length can be written.
+See: test/telltoc --help.
+
+dewav extracts raw byte-swapped audio data from files of format .wav (MS WAVE)
+or .au (SUN Audio). See example in libburner --help.
+
+   @subsection libburner-source Sourceode of libburner
+
+Click on blue names of functions, structures, variables, etc in oder to
+get to the according specs of libburn API or libburner sourcecode.
+ 
+@include libburner.c
+*/

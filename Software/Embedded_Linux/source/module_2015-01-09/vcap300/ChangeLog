@@ -1,0 +1,99 @@
+/*****************************************************************
+ *                                                               *
+ *  VCAP300 Driver ChangeLog                                     *
+ *                                                               *
+ *  Copyright (C) 2012 GM Corp. (http://www.grain-media.com)     *
+ *                                                               *
+ *****************************************************************/
+
+V0.1.0
+    1. driver initial version.
+
+V0.1.1
+    1. fix sometime enable/disable mask window fail problem.
+    2. support api to get channel input signal status.
+    3. display channel VLOS status on vg_info proc node.
+    4. add tamper detection support with alarm notify.
+    5. fix cx25930 and mv4101 frame rate incorrect problem when
+       720P@60 from video loss to video present.
+
+V0.1.2
+    1. add "ext_irq_src" module parameter to support extra ll_done
+       interrupt source.
+    2. correct tamper status "Variance" display string.
+    3. support tw2964 input module driver.
+    4. turn off LL update pool not enough message print out when
+       dbg_mode < 2.
+
+V0.1.3
+    1. support error frame to output property "ID_BUF_CLEAN".
+    2. support switch VI parameter immediately if front_end output format changed.
+
+V0.1.4
+    1. fix md_enb register not sync with md_enb config problem.
+    2. add version display proc node of input_module.
+    3. add buf_clean proc node to control property output when job status fail.
+    4. add vi_max_w module parameter for control sd line buffer calculation mechanism.
+    5. fix image paste to wrong position when enable auto aspect ratio and target cropping.
+    6. add grab_filter proc node for filter fail frame drop rule.
+    7. modify channel timeout detect procedure.
+
+V0.1.5
+    1. add vi_probe node for probe and debug vi signal.
+    2. change time base frame rate control to frame base.
+
+V0.1.6
+    1. support tp2802 input module driver.
+    2. support channel path emergency stop.
+    3. support osd_mask window no-align setting.
+
+V0.1.7
+    1. disable 2frame_mode to grab 2 frame mechanism if vi speed is VCAP_VI_SPEED_2P.
+    2. generic input_module provide interface and bt601_param proc node to switch VI setting.
+    3. modify alignment caculation mechanism of osd_mask position and dimension.
+
+V0.1.8
+    1. fix image over buffer range problem if scaling ratio too small.
+
+V0.2.0
+    1. support GM8136 platform.
+    2. support to use kthread for videograph job callback.
+
+V0.2.1
+    1. add OSD force frame mode control function for GM8136.
+    2. add OSD font edge smooth mode control function for GM8136.
+    3. add OSD auto color change scheme control function for GM8136.
+
+V0.3.0
+    1. support 2ch dual edge hybrid interface format.
+    2. modify vg_info proc node to support two page read.
+    3. fix vcap_vg_putjob procedure semaphore not release problem when error exit.
+
+V0.3.1
+    1. support pending new version group job to wait old version finish.
+
+V0.3.2
+    1. add vcrop_rule module parameter to support source vertical cropping.
+    2. add vup_min module parameter to support vertical minimal scaling up line
+       number.
+    3. modify driver panic hardware stop procedure.
+    4. add heartbeat timer to watch capture hardware status for detect hardware
+       force shut down and do recover, default is disable.
+    5. fix osd font index over range problem.
+
+V0.3.3
+    1. support frame 60I feature.
+
+V0.3.4
+    1. force to adjust md x and y block number to prevent md region over image size.
+
+V0.3.5
+    1. add md gaussian value check for detect gaussian vaule update error problem when
+       md region switched.
+    2. add md get all channel tamper status api.
+
+V0.3.6
+    1. support videograph job property ID_DST2_BUF_OFFSET.
+
+V0.3.7
+    1. fix dma overflow to trigger hardware fatal reset condition.

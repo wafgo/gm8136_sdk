@@ -1,0 +1,1519 @@
+
+-------------------------------------------------------------------------------
+Note: This is about how libburn operates optical drives. Not about how to
+      operate libburn. The libburn API is described in libburn/libburn.h
+-------------------------------------------------------------------------------
+
+libburnia-project.org Optical Media Rotisserie Recipes as of December 2011
+
+Content:
+- TAO Multi-Session CD Cookbook (CD-R, CD-RW)
+- SAO CD Cookbook (CD-R, CD-RW, pure audio or pure data only)
+- Overwriteable DVD Cookbook (DVD-RAM, DVD+RW, DVD-RW, BD-RE)
+- Sequential DVD-R[W] Cookbook
+- DVD+R[/DL] Cookbook
+- BD-R Cookbook
+
+-------------------------------------------------------------------------------
+                         TAO Multi-Session CD Cookbook
+-------------------------------------------------------------------------------
+Guided by reading mmc-r10a.pdf , O.8 "Write a Track"
+                               from http://www.t10.org/ftp/t10/drafts/mmc/
+backed by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+by reading        spc3r23.pdf  from http://www.t10.org/ftp/t10/drafts/spc3/
+by reading        libburn/*    from http://icculus.org/burn
+and by experiments with drives NEC ND-4570A, LG GSA-4082B, LITE-ON LTR48125S
+which used in part code from http://icculus.org/burn.
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+
+Media type can be recognized by Current Profile from 46h GET CONFIGURATION.
+(mmc5r03c.pdf 6.6.2.1)
+
+CD-R                           0009h
+CD-RW                          000ah
+
+The following topics are covered in this text:
+- About blank, appendable and finalized CD media
+- Writing a session to CD in TAO mode
+- Obtaining CD multi-session info for extending ISO-9660 filesystems
+- Obtaining a Table Of Content from CD
+
+
+-------------------------------------------------------------------------------
+About blank, appendable and finalized CD media :
+
+CD media have to be blank or appendable in order to be writeable in TAO mode.
+The according status may be inquired by 51h READ DISC INFORMATION requesting
+Data Type 000b Standard Disc Information, where reply value Disc Status
+indicates:
+ 00b   blank
+ 01b   appendable
+ 10b   finalized
+ 11b   others (unsuitable for this recipe)
+(mmc5r03c.pdf 6.22.3.1.4)
+
+CD-RW which are finalized or appendable may be blanked by command A1h BLANK
+with blanking types 000b "Blank the disc" or 001b "Minimally blank the disc".
+The Start Address/Track Number will be ignored so it may well be 0.
+
+Because the operation is long running it is advised to set the Immed bit and to
+watch the progress by commands 00h TEST UNIT READY and 03h REQUEST SENSE
+with DESC bit set to 0 for fixed format reply.
+It is done when 00h succeeds and 03h reports 0 in PROGRESS INDICATION 
+(byte 1+2 in Table 22 = byte 16+17 SENSE KEY SPECIFIC in table 26).
+(mmc5r03c.pdf 6.2 BLANK)
+(spc3r23.pdf 4.5.2.4.4 table 22, 4.5.3 table 26,
+             6.27 REQUEST SENSE, 6.33 TEST UNIT READY)
+
+
+-------------------------------------------------------------------------------
+Writing a session to CD in TAO mode :
+
+The writing method for blank or appendable media is the same. A new session
+will get created automatically by the first track when it is written. If the
+media is blank then the new session will be the first and only one in the
+table of content. If the media is appendable then a new session will be
+appended to the existing sessions. In any case the new track will be the
+first one in the new session.
+
+Speed may be set by BBh SET CD SPEED parameter Drive Write Speed. Note that
+kbytes/sec means 1000 bytes/sec and not 1024/sec. Rotational control should
+be set to 00b. 1x CD speed is 176.4 kbytes/sec. Speed is usually set to the
+next lower possible value by the drive. So it is helpful to add a few 
+kbytes/sec just in case the drive has rounding problems.
+(mmc5r03c.pdf 6.37)
+
+Before writing can occur, a Write Parameters mode page 05h has to be composed
+and transmitted via 55h MODE SELECT. Mode page 05h describes several burn
+parameters:
+ BUFE             Buffer Underrun protection      0=off, 1=on
+ Test Write       -dummy mode for writing         0=off, 1=on
+ Write Type       Packet/TAO/SAO/RAW              01h = TAO
+ Multi-session    Whether to keep appendable      00b = finalize
+                                                  11b = keep appendable
+ Copy             Whether to deny copying         1 = deny by SCMS , 0 = allow
+ Track Mode       Describes frame type            4 for data , 0 for audio
+ Data Block Type  Layout of payload blocks        8 for 2048 byte data blocks
+                                                  0 for 2352 byte audio blocks
+ Audio Pause Length                               150 = 2 seconds
+ Media Catalog Number  A property of the disc     0x80 if valid
+                                                  13 decimal digits as ASCII
+ ISRC             A property of the track         0x80 if valid
+                                                  12 letters and digits, ASCII
+Any other parameters may be set to 0.
+Mode page data as of MMC-5 table 644 are preceded by a Mode Parameter Header
+as of SPC-3 table 240. This 8-byte header may be filled with zeros.
+(mmc5r03c.pdf 7.5.4 The Mode Page, 4.2.3.4 Table 17 CONTROL = Track Mode)
+(spc3r23.pdf 6.8 MODE SELECT, 7.4.3 Mode parameter header formats)
+
+
+Writing has to begin at the address returned by 52h READ TRACK INFORMATION
+with Address/Number Type set to 01b and Logical Block Address/Track/Session
+Number set to FFh. The Next Writeable Address as of table 500 is the number
+to start writing with.
+(mmc5r03c.pdf 6.27 )
+
+Writing is performed by one or more 2Ah WRITE transactions with the Logical
+Block Address counted up from the initial number in sync with the number of
+blocks written. I.e the Transfer Length of the previous 2Ah WRITE has to be
+added to the Logical Block Address for the next 2Ah WRITE. Only full blocks
+can be written.
+(mmc5r03c.pdf, 6.44)
+When writing is done, it is mandatory to force the drive's buffer to media by
+35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf, 6.41)
+
+A track must at least contain 300 payload blocks: 4 seconds of audio or
+600 KiB of data.
+(mmc5r03c.pdf 6.3.3.1.2)
+
+Up to december 2009 the track was closed by 5Bh CLOSE TRACK SESSION Close
+Function 001b. Older MMC specifies a valid Logical Track Number FFh to depict
+the open track.  MMC-5 is quite silent about this. FFh worked for my drives.
+(mmc5r03c.pdf 6.3.3.1.2)
+This is omitted since libburn-0.7.4, relying entirely on 35h SYNCHRONIZE CACHE.
+First appeared a drive where CLOSE TRACK fails in simulation mode, later
+another one produced error replies even with real burning.
+
+After that, a new track may be written beginning with sending the mode page 05h
+again. It is not tested whether 05h can be omitted if Track Mode and Data Block
+Type are the same as with the previous track.
+The new track will be added to the session which was opened by the first track.
+
+After the last track of a session, 5Bh CLOSE TRACK SESSION Close Function 010b
+with Logical Track Number 0 closes the session. It depends on the Multi-Session
+value in mode page 05h whether the disc is finalized or stays appendable.
+(mmc5r03c.pdf 6.3.3.1.3)
+
+
+-------------------------------------------------------------------------------
+Obtaining CD multi-session info for extending ISO-9660 filesystems :
+
+Program mkisofs expects two numbers with its option -C which describe the
+situation on an appendable CD which already contains a ISO-9660 filesystem
+in the first track of the last session.
+
+The first number is the Logical Block Address of that track containing the
+existing ISO-9660 filesystem image. This number is needed for mkisofs option
+-M to connect to the existing image. The new image will refer to files in
+the previously existing image. mkisofs option -M needs read access to the
+CD or a blockwise copy of it on hard disk. 
+The number is gained by 43h READ TOC/PMA/ATIP.
+(mmc5r03c.pdf 6.26)
+Untested is Format 0001b which in table 478 promises quick access via
+Start Address Of First Track In Last Session.
+(mmc5r03c.pdf 6.26.2.5 table 478, 6.26.3.3.1)
+libburn gets the number from its Table Of Content model which is obtained
+by 43h READ TOC/PMA/ATIP, Format 0010b. See below.
+
+The second number is an exact prediction of the Logical Block Address of the
+new track which will contain the newly generated ISO-9660 image.
+Even without mkisofs option -M this second number is still needed to make the
+inner block address pointers of the image match the Logical Block Addresses
+on CD. For that one may inquire 52h READ TRACK INFORMATION with
+Address/Number Type set to 01b and Logical Block Address/Track/Session
+Number set to FFh. The Next Writeable Address as of table 500 is the number
+to use.
+(mmc5r03c.pdf 6.27 )
+
+
+-------------------------------------------------------------------------------
+Obtaining a Table Of Content from CD :
+
+The structure of a CD is comprised of sessions. Each session contains one or
+more tracks and is followed by a lead-out. A track has an address and a length.
+
+Table of content information is gained by 43h READ TOC/PMA/ATIP, Format 0010b.
+(mmc5r03c.pdf 6.26.2.5 table 478)
+
+The number of sessions is given by Last Complete Session Number.
+The number of TOC Track descriptors is: (TOC Data Length - 2)/11 . 
+
+Each TOC Track Descriptor contains a Session Number.
+
+If POINT is >= 1 and <= 99 (63h) then the descriptor is about the track of
+which POINT tells the number.
+The start address of this track can be read from PMIN, PSEC, PFRAME where
+it is encoded in MSF format:
+If M is smaller than 90:  LBA = (M * 60 + S) * 75 + F - 150
+Else                   :  LBA = (M * 60 + S) * 75 + F - 450150
+
+The length of the track is given by MIN,SEC,FRAME in the same format.
+
+If POINT = A0h then the descriptor tells in PMIN the first track number of its
+session.
+POINT = A1h tells in PMIN the last track number of its session.
+POINT = A2h describes in PMIN, PSEC, PFRAME the lead-out of a session, i.e the
+first address after the session's end. (Next writeable address typically is
+lead-out + 11400 after the first session, lead-out + 6900 after further
+sessions.)
+POINT = B0h tells in MIN,SEC,FRAME this next writeable address or FFh,FFh,FFh
+for finalized disc.
+(mmc5r03c.pdf 6.26.3.4 table 489, 4.2.3.7 Mode-1 Q, Mode-5 Q)
+
+
+In libburn the address of the first track in the last session is obtained from
+the last session's POINT = A0h and from the track descriptor with the POINT
+value matching the PMIN value of the A0h descriptor.
+Untested is whether POINT = B0h and 52h READ TRACK INFORMATION are always in
+sync. libburn uses the info provided by 52h READ TRACK INFORMATION.
+
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+                                 SAO CD Cookbook
+-------------------------------------------------------------------------------
+Guided by reading     libburn/* from http://icculus.org/burn
+backed by reading  mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+backed by reading     scms.html from
+                     http://www.barrel-of-monkeys.com/graphics/prod/dvdplayers/
+and by experiments with drives  NEC ND-4570A, LG GSA-4082B, LITE-ON LTR48125S,
+                                Optiarc BD RW BD-5300S, LG BDDVDRW GGC-H20L
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+
+Recognition of media type and state (blank, appendable, finalized) is as
+described in the TAO Multi-Session CD Cookbook. See there.
+
+The MMC specs do not give much hint about the combination of SAO and
+multi-session. My drives refused not only on a few experiments which i did
+in libburn but also failed with cdrecord -sao on an appendable CD.
+So for now only blank CD seem to be suitable for SAO writing.  
+
+Different from TAO mode, the whole session layout is announced to the drive by
+sending a Cue Sheet. This implies that the sizes of the tracks have to be known
+in advance, which is a heavy drawback when dealing with track data sources like
+stdin, named pipes or sockets.
+Nevertheless, SAO seems to be best writing mode for audio purposes, as our
+audio expert Lorenzo Taylor found out.
+
+A SAO session in libburn may either consist entirely of audio tracks or
+entirely of data tracks. For mixed sessions, only TAO is usable yet.
+
+- Composing a SAO CD Cue Sheet (either audio or data, but not mixed)
+- Writing the prepared SAO CD session
+- What is known about mixed mode sessions
+
+
+-------------------------------------------------------------------------------
+Composing a Cue Sheet (either audio or data, but not mixed) :
+
+The Cue Sheet will get submitted to the drive by 5Dh SEND CUE SHEET.
+Each entry of the sheet is of 8 bytes size. Its fields are named
+CTL|ADR, TNO, INDEX, DATA FORM, SCMS, MIN, SEC, FRAME .
+(mmc5r03c.pdf 6.33)
+
+CTL is comprised of four bits:
+  bit4 = Pre-emphasis (audio only)
+  bit5 = Digital copy permission:
+         0 = prohibited (one-time copy is permitted if SCMS is 00h)
+         1 = permitted (unlimited)                         
+  bit6 = Data track indicator (bit4 and bit7 shall be 0)
+  bit7 = 4-channel audio
+Usually CTL is 40h for data and 00h for audio.
+(mmc5r03c.pdf 6.33.3.4)
+ADR is 01h for entries which define time points. It is 02h for media catalog
+entries and it is 03h for track ISRC entries.
+The bits of CTL and ADR are combined in the CTL|ADR byte.
+
+TNO is the track number. The TNO of the first track may be chosen in the range
+of 1 to 99. The TNO of following tracks must be the TNO of their predecessor
+plus 1. The last track must not have a TNO larger than 99.
+
+INDEX is a subaddress within tracks. INDEX 1 is mandatory and marks the start
+of the payload area of a track. The range between INDEX 0 and 1 is called
+pre-gap. It should contain zeros if it exists. Further cue sheet entries with
+consecutive INDEX numbers mark ranges within the track. The range of the last
+index may contain a post-gap with zeros.
+(mmc5r03c.pdf 4.2.3.5.2)
+A pre-gap of 2 seconds is mandatory only for the first track. Pre-gap and
+post-gap may be needed with further tracks if they have neighbors with
+different DATA FORM values. (Such mixing is not yet supported by libburn.)
+
+DATA FORM is 00h for audio payload, 01h for audio pause (Lead-in and Lead-out),
+10h for data, 14h for data pause (Lead-in and Lead-out).
+This shall be ored with 40h for CD-TEXT in Lead-in. 
+(mmc5r03c.pdf 6.33.3.11 CD-DA Data Form, 6.33.3.12 CD-ROM mode 1 Form)
+
+SCMS value 80h in conjunction with bit5 of CTL is an indicator for exhausted
+one-time-copy permission. If this permission is still intact, then SCMS is 00h.
+
+MIN, SEC, FRAME give the MSF address where the described data entity starts.
+LBA = frames - 150, 75 frames = 1 sec , 60 sec = 1 min.
+This address must increase from entry to entry (or at least stay equal).
+
+
+The first two entries in a Cue Sheet may describe the Media Catalog Number,
+a string of 13 characters, also known with CD-TEXT as "UPC/EAN".
+(02h, catalog characters 1 to 7)
+(02h, catalog characters 8 to 13, 00h)
+These two entries shall be omitted if no catalog number is given.
+
+The next entry (eventually being the first one) describes the Lead-in.
+Its content is 
+(CTL|ADR ,00h,00h, DATA FORM ,00h,00h,00h,00h)
+With the CTL|ADR for the first track: 41h for data, 01h for audio.
+DATA FORM is pause (audio=01h, data=14h). Ored with 40h if CD-TEXT shall
+be stored in Lean-in.
+
+The LBA for the first write is negative: -150. This corresponds to MSF address
+00h:00h:00h. All addresses are to be given in MSF format.
+
+Each track may be preceded by two entries describing an ISRC string of 12
+characters.
+(CTL | 03h, TNO, characters 1 to 6)
+(CTL | 03h, TNO, characters 7 to 12)
+These entries shall be omitted if no ISRC is given for the track.
+CTL shall be the same as with the track.
+
+The first information track on disc is preceded by a pause encoding or pre-gap
+of at least 2 seconds:
+(CTL|ADR,01h,00h, DATA FORM ,00h,00h,00h,00h) 
+with DATA FORM = 00h for audio and 10h for data. By those 2 seconds the MSF
+address increases to 00h:02h:00h = LBA 0. Optional further sectors may occupy
+addresses larger than 0. This entry has to come after ISRC, if ISRC is given
+for the track. INDEX has to be 0.
+
+Each track is represented by one or more entries, with increasing index number.
+At least the entry for INDEX 1 has to exist:
+(CTL|ADR, TNO ,01h,DATA FORM,00h, MIN , SEC , FRAME)
+TNO gives the track number. MIN, SEC, FRAME give the MSF address which becomes
+the start address of the track. The MSF address is then increased by the size
+of the track (to be used with next track or with lead-out).
+There may be more entries with INDEX 2 to 99. Their MSF address tells the
+sector where their range starts. This range ends at the MSF of the next entry
+in the cue sheet. INDEX information is stored in the sub-channel of the sectors
+but not in the Table-of-Content of the disc.
+
+A track must at least contain 300 payload blocks: 4 seconds of audio or
+600 KiB of data.
+(mmc5r03c.pdf 6.33.3.6)
+
+At the end of the session there is a lead-out entry
+(CTL|ADR,AAh,01h,DATA FORM,00h,MIN,SEC,FRAME)
+marking the end of the last track. (With libburn CTL is as of the last track.)
+DATA FORM is 01h for audio, 14h for data.
+
+
+-------------------------------------------------------------------------------
+Writing the prepared session :
+
+Speed may be set by BBh SET CD SPEED parameter Drive Write Speed. Note that
+kbytes/sec means 1000 bytes/sec and not 1024/sec. Rotational control should
+be set to 00b. 1x CD speed is 176.4 kbytes/sec. Speed is usually set to the
+next lower possible value by the drive. So it is helpful to add a few
+kbytes/sec just in case the drive has rounding problems.
+(mmc5r03c.pdf 6.37)
+
+If CD-TEXT shall be written into Lead-in, then it is necessary to obtain the
+Start Time of Lead-in by 43h READ TOC/PMA/ATIP Format 0100b. It is an MFS
+address which varies from media manufacturer to media manufacturer.
+Minute will be >= 90. Therefore this conversion applies:
+  LBA = (M * 60 + S) * 75 + F - 450150
+
+A Write Parameters mode page 05h has to be composed and transmitted via
+55h MODE SELECT. This page describes the following parameters:
+ BUFE             Buffer Underrun protection      0=off, 1=on
+ Test Write       -dummy mode for writing         0=off, 1=on
+ Write Type       Packet/TAO/SAO/RAW              02h = SAO
+ Multi-session    Whether to keep appendable      00b = finalize
+                                                  11b = keep appendable
+ Track Mode       Describes frame type            0 (is ignored)
+ Data Block Type  Layout of payload blocks        0 (is ignored)
+ Audio Pause Length                               150 = 2 seconds (ignored ?)
+ Media Catalog Number                             0x80 if valid
+                  See also Cue Sheet ADR 02h      13 decimal digits as ASCII
+ (With SAO, ISRC is transmitted only by the Cue Sheet.)
+
+Any other parameters may be set to 0.
+Mode page data as of MMC-5 table 644 are preceded by a Mode Parameter Header
+as of SPC-3 table 240. This 8-byte header may be filled with zeros.
+(mmc5r03c.pdf 7.5.4 The Mode Page, 4.2.3.4 Table 17 CONTROL = Track Mode)
+(spc3r23.pdf 6.8 MODE SELECT, 7.4.3 Mode parameter header formats)
+
+The Cue Sheet is submitted to the drive by 5Dh SEND CUE SHEET. Cue Sheet Size
+is 8 times the number of entries.
+(mmc5r03c.pdf 6.33)
+
+Writing is performed by multiple 2Ah WRITE transactions with the Logical
+Block Address counted up from the initial number in sync with the number of
+blocks written. I.e the Transfer Length of the previous 2Ah WRITE has to be
+added to the Logical Block Address for the next 2Ah WRITE. Only full blocks
+can be written.
+(mmc5r03c.pdf, 6.44)
+Block addresses may be negative for areas before the normally readable
+data. Data representation of addresses is 4-byte, big-endian, two's-complement.
+E.g:  -150 = FFh FFh FFh 6Ah.
+This is the natural form found with about any 32-bit processor, so only
+the endianness has to be taken into respect when converting a 32-bit
+integer into a LBA for command 2Ah WRITE.
+
+If CD-TEXT shall be written into Lead-in, then writing begins at the start
+address of Lead-in, which was obtained above.
+The 18 bytes of each text pack have to be split up to 24 bytes with only the
+lowest six bits used in each byte. E.g. text pack
+   8F 00 2A     00 01 01     03 00 06     05 04 05     07 06 01     02 48 65
+becomes
+  23 30 00 2A  00 00 04 01  00 30 00 06  01 10 10 05  01 30 18 01  00 24 21 25
+4 of these 24 byte packs form a block of DATA FORM 41h. I.e. only 96 bytes
+payload per block. The whole range from Lead-in start to LBA -150 has to be
+filled with blocks of this form. Therefore it is necessary to write the
+list of given packs in repeated cycles.
+A typical Lead-in start address is -11635 = FFh FFh D2h 8Dh.
+A description of the CD-TEXT pack format is given in file  doc/cdtext.txt .
+
+Writing without CD-TEXT begins at LBA -150 = FFh FFh FFh 6Ah.
+
+In both cases, the mandatory pause preceding the first track has to be
+written as 150 blocks of the matching sector size: 2048 for data,
+2352 for audio. By this, the LBA increases from -150 to 0.
+
+Next the tracks' payload is sent. For each track exactly the number of blocks
+has to be transmitted as is announced in the Cue Sheet by the difference
+of the track's own start address and the start address of the next entry in
+the Cue Sheet. After each write the LBA for the next write has to be increased
+by the number of blocks transmitted. Just like with TAO writing.
+
+There is no separator between the tracks of a pure mode SAO session.
+(If the session was mixed mode, there would be extended Pre-gaps and Post-gaps
+between data mode tracks and audio mode tracks.)
+(libburn sends its own buffer to the drive at the end of each track but does
+not sync the drive's chache. It is unclear whether this separation of tracks
+on the level of 2Ah WRITE is necessary with a pure mode session. It does not
+harm in any case and would probably be unavoidable if audio and data tracks
+were mixed.)
+
+When writing of all tracks is done, it is mandatory to force the drive's buffer
+to media by 35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf, 6.41)
+
+No further finalization is necessary. (I.e. no 5Bh CLOSE TRACK SESSION.)
+
+
+-------------------------------------------------------------------------------
+Obtaining CD-TEXT from Lead-in :
+
+Audio CDs may contain CD-TEXT information in their Lead-in. It is gained by
+43h READ TOC/PMA/ATIP, Format 0101b. The reply consists of 4 bytes header,
+of which the first two bytes give the number of following bytes as big-endian
+16 bit number. The other two bytes are 0.
+Following are text packs of 18 bytes each.
+(mmc5r03c.pdf 6.26.3.7.1 table 495)
+
+
+A description of CD-TEXT packs and of the applicable libburn API calls is
+given in file doc/cdtext.txt .
+
+
+----------------------------------------------------------------------------
+What is known about mixed mode sessions :
+
+For now, SAO sessions with a mix of data and audio are not supported in
+libburn. Here are the reasons why.
+
+Obviously the code of http://icculus.org/burn is incomplete in this aspect.
+In mmc5r03c.pdf comparison of table 555 and 6.33.3.18 seems self-contradicting.
+(The second Pre-gap in table 555 does not match any of the criteria of
+6.33.3.18. Also, there is no Post-gap shown in table 555 although 6.33.3.19
+would prescribe some.)
+
+If a data track follows an audio track then the data track gets a preceding
+extended Pre-gap:
+(CTL|ADR, TNO ,01h,DATA FORM,00h, MIN , SEC , FRAME)
+with TNO already the number of the data track. The MSF address is to be
+increased by 3 seconds. The first second of the extended Pre-gap needs to be
+written in the audio track's mode and the other 2 seconds are to be written
+in the data track's mode.
+(libburn compares DATA FORM rather than burn_track.mode . Wrong ?)
+(libburn currently does only 2 seconds and the second part of Pre-gap. There is
+an issue with burn_track.pregap1 about this. Seems libburn mistakes the pause
+preceding track 1 for a part 2 of an extended Pre-gap.)
+
+If a data track is followed by an audio track then it gets a Post-gap of at
+least two seconds.
+No example of Post-gap is given for Cue Sheet. Maybe it is to be added to the
+track, or maybe it gets an own Cue Sheet entry ... who knows ?
+(libburn contains write code for pregap1, pregap2 and postgap. But only
+pregap2 ever gets activated. Once hackingly for the first 2 second pause, once
+incompletely for a change of DATA FORM.)
+
+Seems nobody ever tested this. Libburnia simply knows no use case where the
+correctness of Pre-gap and Post-gap would become evident.
+
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+                           Overwriteable DVD Cookbook
+-------------------------------------------------------------------------------
+Inspired by Andy Polyakov's http://fy.chalmers.se/~appro/linux/DVD+RW/tools ,
+backed by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+by own experiments with drives NEC ND-4570A, LG GSA-4082B, PHILIPS SPD3300L,
+LG GGW H20L, and by BD-RE experiments done by Giulio Orsero on LG BE06LU10.
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+
+Media type can be recognized by Current Profile from 46h GET CONFIGURATION.
+(mmc5r03c.pdf 6.6.2.1)
+
+DVD-RAM                        0012h
+DVD-RW Restricted Overwrite    0013h
+DVD-RW Sequential Recording    0014h (i.e. unformatted)
+DVD+RW                         001Ah
+BD-RE                          0043h
+
+A short compilation of the write model:
+- Overwriting in general
+
+The recipes described here are depending on formatting state:
+- DVD-RAM, fully formatted DVD+RW, DVD-RW, BD-RE
+- Unformatted DVD+RW
+- Partly formatted DVD+RW
+- Unformatted DVD-RW
+- Partly formatted DVD-RW
+- Intermediate state DVD-RW
+- DVD-RAM and BD-RE formatting
+- DVD-RAM and BD-RE speed tuning
+
+Slightly off topic are
+- ISO 9660 multi-session emulation on overwriteable media
+- ISO 9660 based TOC emulation on overwriteable media
+
+-------------------------------------------------------------------------------
+Overwriting in general :
+
+Depending on media type, some kind of formatting has to have happened before
+data can be written. Formatting may happen separately from writing or
+simultaneously. See the particular recipes below.
+
+No Write Parameters mode page 05h is to be sent. Speed can be influenced by
+B6h SET STREAMING , speed capabilities can be inquired by ACh GET PERFORMANCE.
+It is advised to set only speeds and sizes which are returned by ACh.
+(mmc5r03c.pdf 6.39 SET STREAMING, 6.8 GET PERFORMANCE)
+Optimal performance is promised without any speed setting. But my experiments
+showed that SET STREAMING values persist after media change.
+
+In the formatted area of the media, coarse random access is possible.
+For DVD-RAM, DVD+RW, BD-RE write addresses and data size need to be aligned
+to 2 KiB. For DVD-RW alignment has to be 32 KiB. Within these limitations
+the write address is at the discretion of the sending program.
+Just use 2Ah WRITE to send data.
+(mmc5r03c.pdf, 6.44)
+When writing is done, it is mandatory to force the drive's buffer to media by
+35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf, 6.41)
+
+The size of the formatted area can be inquired by 23h READ FORMAT CAPACITIES.
+The Number Of Blocks value in the Current/Maximum Capacity Descriptor gives
+this size in 2 KiB blocks. But this is true only if Descriptor Type is 10b
+("Formatted Media").
+(mmc5r03c.pdf, 6.24.3.2.1, 6.24.3.2.3)
+
+Not yet formatted areas may be completely forbidden or they may be allowed for
+sequential writing (DVD-RW Intermediate state) or they may be allowed for
+random access only after the necessary waiting time for formatting to reach
+the desired address (DVD+RW with background formatting active).
+
+Already written areas can be overwritten without special precaution.
+Blanking a DVD-RW actually destroys its formatting.
+
+
+Most of the concepts usually expressed in Write Parameters mode page 05h do not
+apply to the recipes here: Test-Write, Buffer Underrun protection,
+Multi-session, Write Type, Block Type, Track Mode, ...
+There are hints for multi-session formats with DVD-RW but both of my drives
+do not offer "Add Session" Format Types 12h or 14h.
+(mmc5r03c.pdf 6.5.4.2.7 , 6.5.4.2.9)
+
+
+Caution: Drive and media compatibility seems still to be quite an adventure.
+If you experience problems, especially problems with readability, then try
+different drives and media brands. Failure does not necessarily mean that the
+software did anything wrong.
+
+
+-------------------------------------------------------------------------------
+DVD-RAM, fully formatted DVD+RW, DVD-RW, BD-RE :
+
+Full format is the natural state of DVD-RAM.
+
+BD-RE are sold unformatted and need to be fully formatted first.
+See paragraph about DVD-RAM and BD-RE formatting below.
+
+DVD+RW reaches this state if Background Formatting is allowed to finish without
+being stopped by 5Bh CLOSE TRACK SESSION.
+(mmc5r03c.pdf, 6.5 FORMAT UNIT, 6.5.4.2.14 Format Type = 26h)
+The formatting state of a DVD+RW may be inquired by 51h READ DISC INFORMATION
+requesting Data Type 000b "Standard Disc Information". In the reply,
+BG Format 3 indicates fully formatted media.
+(mmc5r03c.pdf 6.22.3.1.13)
+
+DVD-RW reaches this state either by Format Type 00h (or 10h) with maximum
+size given as Number Of Blocks, or by writing sequentially until the disc is
+completely full into an intermediate session opened by format 15h resp. 13h.
+(mmc5r03c.pdf, 6.5 FORMAT UNIT, 6.5.4.2.1, 6.5.4.2.10, 6.5.4.2.8)
+A fully formatted DVD-RW can be recognized by 23h READ FORMAT CAPACITIES. The
+Descriptor Type of the Current/Maximum Capacity Descriptor is 10b ("Formatted
+Media") and 0 blocks are offered with Format Types 13h or 11h.
+(mmc5r03c.pdf, 6.24.3.2.1, 6.24.3.3)
+See also discussion of unformatted or partially formatted DVD-RW below.
+
+
+In fully formatted state there is no need for any formatting before writing nor
+for any finalizing other than forcing the drive's buffer to media by
+35h SYNCHRONIZE CACHE (which is mandatory for writing, anyway).
+(mmc5r03c.pdf, 6.41)
+
+(It seems to do no harm to send to DVD+RW or DVD-RW a 5Bh CLOSE TRACK SESSION
+with Close Function 010b despite there is no session open in this scenario.)
+
+
+-------------------------------------------------------------------------------
+Unformatted DVD+RW :
+
+This is the state of previously unused DVD+RW media.
+
+The formatting state of a DVD+RW may be inquired by 51h READ DISC INFORMATION
+requiring Data Type 000b "Standard Disc Information".
+In the reply, BG Format 0 indicates unformatted media (or unsuitable media).
+(mmc5r03c.pdf 6.22.3.1.13)
+
+Formatting has to be started by command 04h FORMAT UNIT, Format Type 26h.
+Different from other format types, 26h allows to send a fantasy size of
+0xffffffff blocks and does not require the caller to know the exact maximum
+size offered with that format.
+(mmc5r03c.pdf, 6.5 FORMAT UNIT, 6.5.4.2.14 Format Type = 26h)
+
+As its name suggests, one has not to wait for background formatting to end
+but may very soon start writing as on formatted media. Random access to
+yet unformatted areas can last long, though.
+
+If backup formatting has been started at the beginning of the session, then
+it may get stopped after the final cache sync by 5Bh CLOSE TRACK SESSION
+with Close Function 010b. 
+(mmc5r03c.pdf 6.3.3.6)
+
+Formatting of DVD+RW is called "de-icing" because unformatted areas offer
+no hold for random access addressing and are thus slippery like ice. One can
+also see a color change from shiny unformatted to more dull formatted media.
+
+
+-------------------------------------------------------------------------------
+Partly formatted DVD+RW :
+
+This state is achieved by stopping background formatting before the media
+was completely formmatted. 
+
+The formatting state of a DVD+RW is obtained by 51h READ DISC INFORMATION
+requiring Data Type 000b "Standard Disc Information".
+In the reply, BG Format 1 indicates partly formatted media.
+(mmc5r03c.pdf 6.22.3.1.13)
+
+If the data of the session surely fit into the formatted area, then it would
+be unnecessary to restart background formatting.
+But in order to make the DVD+RW surely accept its maximum number of bytes,
+formatting may be restarted by command 04h FORMAT UNIT, Format Type 26h,
+with the Restart bit set and Number of Blocks set to 0xffffffff.
+(mmc5r03c.pdf, 6.5 FORMAT UNIT, 6.5.4.2.14 Format Type = 26h)
+
+From then on, the same rules apply as for previously unformatted DVD+RW.
+
+
+-------------------------------------------------------------------------------
+Unformatted DVD-RW (media profile is 0014h) :
+
+This state is present with previously unused media. It is also present with
+media blanked by programs cdrecord, wodim or dvd+rw-format and with media which
+were sequentially written from blank state.
+Profile transition from formatted 0013h to unformatted 0014h is done by
+A1h BLANK.
+(mmc5r03c.pdf, 6.2)
+Experiments on my drives indicate that only Blanking Type 000b "Blank the disc"
+achieves neat media. Media blanked via type 001b offer no feature 0021h and
+stall cdrecord or libburn already when those media get examined. growisofs can
+burn them - but only via DAO (feature 002Fh which prescribes Write Type 2).
+(mmc5r03c.pdf 5.3.11, 5.3.25)
+
+For becoming overwriteable such media need to be treated by command 04h FORMAT
+UNIT.
+(mmc5r03c.pdf, 6.5)
+The Format Type has to be chosen from the list replied by 23h READ FORMAT
+CAPACITIES. Suitable are Format Types 00h, 10h, 15h.
+(mmc5r03c.pdf 6.24)
+
+Format Types 00h and 10h provide a writeable area of a size given by Number of
+Blocks. Type 00h seems to be the most traditional and complete one. It needs
+no closing of a session at the end of writing.
+The Number Of Blocks may be at most the value reported by 23h READ FORMAT
+CAPACITIES in the entry for the desired format type. Full format is achieved
+by sending exactly the reported value.
+(mmc5r03c.pdf, 6.5.4.2.1 Format Type = 00h, 6.5.4.2.5 Format Type = 10h)
+
+Format Type 15h provides a writeable area of given size too, but this area can
+be expanded by sequential writing and afterwards marked as overwriteable by
+closing the session. It is even allowed to format with size 0 and to leave
+the size claim entirely to a sequential write process beginning at LBA 0.
+(mmc5r03c.pdf, 6.5.4.2.10 Format Type = 15h)
+When writing is done and cache is synced, one should send 5Bh CLOSE TRACK
+SESSION with Close Function 010b in order to bring the session out of
+Intermediate state. 
+(mmc5r03c.pdf 6.3.3.2.3)
+If not written up to the last 32 KiB block, the DVD-RW is only partly formatted
+after that.
+
+
+-------------------------------------------------------------------------------
+Partly formatted DVD-RW (media profile is 0013h) :
+
+This state is achieved by formatting a DVD-RW with a number of blocks which
+is less than offered for the Format Type by the drive's reply to 23h READ
+FORMAT CAPACITIES. If the media was most recently formatted by Format Types
+015h or 013h then it must have got written some bytes and afterwards treated
+by 5Bh CLOSE TRACK SESSION, 010b in order to be partly formatted.
+(mmc5r03c.pdf 6.3.3.2.3 CLOSE TRACK SESSION 010b, 6.24 READ FORMAT CAPACITIES)
+Elsewise the media is in Intermediate state. See below.
+
+A partly formatted DVD-RW can be recognized by 23h READ FORMAT CAPACITIES. The
+Descriptor Type of the Current/Maximum Capacity Descriptor is 10b ("Formatted
+Media") and the Number Of Blocks with formats 00h, 10h or 15h is larger than the
+currently formatted size, resp. more than 0 blocks are offered with Format
+Types 13h or 11h.
+(mmc5r03c.pdf, 6.24.3.2.1, 6.24.3.3)
+
+If the data of the session surely fit into the formatted area, then it would
+be unnecessary to do any further formatting.
+But in order to make the DVD-RW surely accept its maximum number of bytes,
+partial formatting may be expanded by command 04h FORMAT UNIT, Format Type 13h,
+which is supposed to be offered by the drive in this state. This brings the
+session again into Intermediate state and thus allows expansion by sequential
+writing. As with Format Type 15h it is ok to set Number Of Blocks to 0, so that
+no fixed size formatting work is done and writing can begin soon after.
+(mmc5r03c.pdf, 6.5.4.2.8 Format Type = 13h)
+
+When writing is done and cache is synced, one should send 5Bh CLOSE TRACK
+SESSION with Close Function 010b in order to bring the session out of
+Intermediate state. 
+(mmc5r03c.pdf 6.3.3.2.3)
+If not written up to the last 32 KiB block, the DVD-RW is only partly formatted
+after that.
+
+Format Type 13h has been tested only with expanding sessions formatted by 15h.
+Nevertheless it is offered with sessions from 00h and 10h, too.
+According to the specs, Format Type 11h would expand a session by a fixed
+size. This has not been tested yet because it is less appealing than 13h.
+(mmc5r03c.pdf, 6.5.4.2.6 Format Type = 11h)
+
+
+-------------------------------------------------------------------------------
+Intermediate state DVD-RW (media profile is 0013h) :
+
+This state is achieved by formatting a DVD-RW with Format Type 15h or 13h
+without subsequentially writing data and sending 5Bh CLOSE TRACK SESSION
+with Close Function 010b.
+Such media behave very unpleasing with my DVD-ROM drive under Linux 2.4 ide-cd.
+One should therefore better avoid to release media in this state.
+
+This state can be recognized by 23h READ FORMAT CAPACITIES. The Descriptor Type
+of the Current/Maximum Capacity Descriptor is 11b ("Unknown Capacity") and
+no formats 13h or 11h are offered.
+(mmc5r03c.pdf, 6.24.3.2.1, 6.24.3.3)
+
+One may treat such media as if Format Type 15h or 13h had been freshly applied.
+I.e. sequential writing from LBA 0. After cache sync bring the session out
+of Intermediate state by 5Bh CLOSE TRACK SESSION with Close Function 010b.
+(mmc5r03c.pdf 6.3.3.2.3)
+
+
+-------------------------------------------------------------------------------
+DVD-RAM and BD-RE formatting :
+
+Although DVD-RAM usually are sold formatted, there may still arise the wish
+to adjust formatting.
+BD-RE are sold unformatted and need to be formatted prior to usage.
+
+Two format types are relevant for DVD-RAM : 00h and 01h.
+00h offers the default size format and usually a maximum payload size format.
+Even with that maximum size payload there is hardware defect management.
+(mmc5r03c.pdf 6.5.4.2.1.2)
+01h allows to convert payload capacity into spare blocks for defect
+managment. There is no way to increase payload capacity by format 01h.
+(mmc5r03c.pdf 6.5.4.2.2.1)
+
+With BD-RE there are three format types : 00h, 30h and 31h.
+00h offers the default size format. This may be the only fast formatting
+mode that is offered by the drive.
+Feature 0023h tells whether format 31h and certain 30h subtypes are available.
+(mmc5r03c.pdf 5.3.13)
+30h offers several sizes with defect management. Usually there are three
+sizes given: #1: default size, #2: maximum spare area, #3: minimal spare.
+One may demand any spare size between maximum and minimum. There may be quick
+certification and full certification. See feature 0023h.
+31h offers a single size and disables defect management. This has the side
+effect to speed up writing to nominal speed.
+(mmc5r03c.pdf 6.5.4.2.15, 6.24.3.3, Table 472)
+
+Only format sizes from the list of format descriptors are permissible
+for DVD-RAM. The format list can be obtained by 23h READ FORMAT CAPACITIES.
+It also includes a description of the current formatting state.
+(mmc5r03c.pdf 6.24, 6.24.3.2, 6.24.3.3)
+
+Formatting is done by command 04h FORMAT UNIT. Its data payload consists
+of a Format List Header and a Format Descriptor. It is advisable to set
+the Immed bit and the FOV bit in header byte number 1. The descriptor should
+be a copy of a descriptor from 23h READ FORMAT CAPACITIES.
+(mmc5r03c.pdf 6.5, 6.5.3.2, 6.5.3.3)
+With nearly all formats Sub-type should be set to 0. But with BD-RE formats
+30h and 31h the Sub-type selects the certification mode.
+Usable with 30h seem 10b Full Certification and 11b Quick Certification.
+Usable with 31h seem also 00b Quick Reformat and 01b No Certification.
+(mmc5r03c.pdf 6.5.4.2.15.1)
+
+Other format types have their certification intensity controlled by
+a pair of bits: CmpList and DCRT.
+CmpList resides in CDB byte 1 as bit 3. DCRT resides in the payload byte 1
+as bit 5. Both together should request a quick size change without lengthy
+certification but maintaining the list of known defects.
+(mmc5r03c.pdf 6.5, table 249, 6.5.3.2)
+With DVD-RAM on my PHILIPS SPD3300L drive they prevent any format size
+change though. The TSSTcorp SH-S203B works properly.
+With BD-RE format 00h, the default is specified to be Quick Reformat,
+and with 00h in general certification can only be disabled not enabled.
+(mmc5r03c.pdf 6.5.4.2.1.7)
+
+
+-------------------------------------------------------------------------------
+DVD-RAM and BD-RE tuning :
+
+A special aspect of DVD-RAM and BD-RE is their low speed with write operations,
+which usually is only half than the nominal speed of media and drive.
+This is blamed to the automatic checkreading which happens for managing
+eventual defects. 
+
+Defect management of BD-RE can be disabled by format type 31h. See above.
+There is no drive known yet which would apply command 2Ah WRITE10 to DVD-RAM
+with full speed.
+
+The only known way to get full speed from DVD-RAM or BD-RE with enabled defect
+management is the use of AAh WRITE12 with Streaming Bit set to 1.
+(mmc5r03c.pdf 6.45)
+With some DVD-RAM drives this fails if a write buffer is not full 32 kB.
+With the tested BD-RE one must write full 64 kB buffers, or else writing
+might not get into effect at all.
+
+Although it seems not optimal, this is specified not only to disable the
+cumbersome checkread but also to ignore known defects and to write data
+to these defective addresses.
+(mmc5r03c.pdf 4.8.5)
+So the speed-up is only advisable as long as the media are free of
+incorrectable errors.
+
+Caveat:
+MMC-5 does not guarantee AAh WRITE12 to work on DVD-RAM or BD-RE at all.
+None of the features of profiles 0012h and 0043h promises the existence of
+AAh WRITE12.
+(mmc5r03c.pdf 5.4.13, 6.45)
+Nevertheless it worked on all tested drives if proper alignment and block
+size was observed.
+
+
+-------------------------------------------------------------------------------
+ISO 9660 multi-session emulation on overwriteable media :
+
+Overwriteable media provide a single overwriteable track which may grow up to
+the full media capacity. There is no builtin table-of-content which records
+the history of write sessions.
+mount -t iso9660 will use sbsector=0 as default.
+The term "superblock" shall depict the first 64 KiB after the sbsector address.
+
+ISO 9660 multi-session depends on typical TOC information in two ways:
+It needs the superblock address MSC1 of the most recently recorded session and
+it needs the Next Writeable Address NWA for which to prepare the adress offset.
+
+The following is learned from growisofs and from ECMA-119:
+http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-119.pdf
+
+ISO 9660 filesystems provide information about the number of sectors which
+is also the lowest unused block address and thus a suitable NWA.
+This block address is stored in the Primary Volume Descriptor which is supposed
+to be stored in block 16 (eventually relative to MSC1).
+The bytes 0 to 5 of a PVD block are 
+   0x01 'C' 'D' '0' '0' '1'
+The sector count can then be read from byte 80 to 83
+   sectors= pvd[80] | (pvd[81] << 8) | (pvd[82] << 16) | (pvd[83] << 24);
+(Ecma-119.pdf 8.4)
+To support CD, DVD and BD media alike, it is advisable to round the NWA
+to the next multiple of 32 (= 64 KiB).
+
+So one can use 0 as MSC1 and prepare a new ISO session for the computed NWA.
+After writing the session it is necessary to copy the PVD from session start
+plus 16 to LBA 16 and to adjust it to its new location.
+The minimal change would be to update the number of image sectors.
+It is stored in both notations LSB and MSB:
+   for(i= 0; i < 4; i++)
+     pvd[87 - i]= pvd[80 + i]= (sectors >> (8 * i)) & 0xff;
+
+cdrskin --grow_overwriteable_iso not only patches the sector fields of the
+PVD block but also the blocks up to LBA 31 which begin with
+   0xff 'C' 'D' '0' '0' '1'
+libisoburn submits 64 KiB data buffer to libisofs before image generation and
+afterwards writes these 64 KiB as new superblock to LBA 0.
+
+
+-------------------------------------------------------------------------------
+ISO 9660 based TOC emulation on overwriteable media :
+
+Above method of multi-session emulation yields a single session image after
+each add-on session. No reliable session history can be read because the
+sector size of the existing session gets overwritten by the new one.
+A TOC with session history is nevertheless desirable with incremental backups
+in order to access older backup states by mounting older superblocks at the
+start addresses of older sessions.
+
+All usual ISO 9660 formatter programs write a complete superblock to the
+start of each session.
+With a uniform NWA rounding rule it is possible to compute the address of
+superblock N+1 as the NWA after session N. The only problem is N=1
+because it gets overwritten by later sessions.
+
+libisoburn preserves the information of session 1 by writing the first session
+to LBA 32 rather than LBA 0. Afterwards it writes the overall superblock to
+LBA 0 (up to 31).
+So with all further add-on sessions the superblock at LBA 0 will enclose the
+overall image, while the superblocks of the sessions form a chain beginning
+at LBA 32. Each session superblock points to the next one by its sector count
+rounded up to 32. The chain end is marked by the overall image size.
+This chain gives the start addresses of sessions. The sector count minus start
+address gives the size of a particular session. ECMA-119 explains how to
+retrieve more info from the PVD (e.g. the volume id).
+
+See also the multi-session example in libisofs/doc/checksums.txt.
+
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+                        Sequential DVD-R[W] Cookbook
+-------------------------------------------------------------------------------
+Inspired by Andy Polyakov's http://fy.chalmers.se/~appro/linux/DVD+RW/tools ,
+backed by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+and by experiments with drives NEC ND-4570A and LG GSA-4082B.
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+
+Media type can be recognized by Current Profile from 46h GET CONFIGURATION.
+(mmc5r03c.pdf 6.6.2.1)
+DVD-R                          0011h
+DVD-RW Restricted Overwrite    0013h
+DVD-RW Sequential Recording    0014h
+DVD-R/DL Sequential Recording  0015h (can only do single-session)
+
+There are two approaches for writing to sequential DVD-R[W]: DAO and
+Incremental. Not all media and drives offer Incremental which allows 
+multi-session as with CD media and does not demand a predicted track size.
+DAO seems to be the older method. It allows only one single session and
+track and it demands an exactly predicted track size.
+
+- About overwriteable, blank, appendable and finalized DVD-R[W] media
+- Incremental writing
+- DAO writing
+- Obtaining DVD-R[W] multi-session info for extending ISO-9660 filesystems
+- Obtaining a Table Of Content from DVD-R[W]
+- Hearsay about DVD-R/DL (Dual Layer)
+
+
+-------------------------------------------------------------------------------
+About overwriteable, blank, appendable and finalized DVD-R[W] media :
+
+DVD-RW can be either in formatted state Restricted Overwrite or in unformatted
+state Sequential Recording. Sequential media can be either blank, appendable
+or finalized.
+
+Only blank and appendable media are sequentially writeable. For overwriteable
+DVD-RW see the Overwriteable DVD Cookbook.
+
+Overwriteable DVD-RW can be detected by their profile number 0013h in contrast
+to profile number 0014h for sequential DVD-RW.
+The status of sequential media can be inquired like with CD by 51h READ DISC
+INFORMATION requesting Data Type 000b Standard Disc Information, where reply
+value Disc Status indicates:
+ 00b   blank
+ 01b   appendable  
+ 10b   finalized
+ 11b   others (unsuitable for this recipe)
+(mmc5r03c.pdf 6.22.3.1.4)
+
+Finalized, appendable or overwriteable DVD-RW can be brought into blank
+sequential state by command A1h BLANK with blanking type 000b "Blank the disc".
+See TAO Multi-Session CD Cookbook for details about blanking.
+
+After minimal blanking (type 001b) DVD-RW my two drives do not offer the
+Incremental Streaming feature 0021h the media any more. Full blanking (000b)
+brings back this feature.
+(mmc5r03c.pdf 6.2)
+
+
+-------------------------------------------------------------------------------
+Incremental writing :
+
+Incremental writing allows to produce multi-session DVDs. It is indicated
+by feature 0021h being marked current in the reply of 46h GET CONFIGURATION.
+growisofs inquires 0021h by setting Starting Feature Number to 0x21 and
+Allocation Length to 16 in order to get only this one. The feature descriptor
+begins at byte 8 of the reply. Its availability is indicated by the Current
+Bit. libburn obtains the full feature list for this and other info.
+(mmc5r03c.pdf 5.2.2. Feature Descriptor format, 5.3.11 Feature 0021h,
+ 6.2 46h GET CONFIGURATION, )
+In mode page 05h this method is selected by Write Type 00h. 
+
+Speed can be influenced by B6h SET STREAMING , speed capabilities can be
+inquired by ACh GET PERFORMANCE. It is advised to set only speeds and sizes
+which are returned by ACh.
+(mmc5r03c.pdf 6.39 SET STREAMING, 6.8 GET PERFORMANCE)	
+
+growisofs fetches a mode page 05h template by MODE SENSE and inserts its own
+parameters.  It sets Multi-session to 11b, unless dvd_compat is nonzero.
+libburn composes its mode page 05h from zero and allows control of
+Multi-Session by the application.
+ BUFE             Buffer Underrun protection      0=off, 1=on
+ LS_V             Link size valid                 1=true
+ Test Write       -dummy mode for writing         0=off, 1=on
+ Write Type       Packet/TAO/SAO/RAW              00h = Incremental (Packet)
+ Multi-session    Whether to keep appendable      00b = finalize
+                                                  11b = keep appendable
+ Track Mode       Describes frame type            5  [*1]
+ Data Block Type  Layout of payload blocks        8  [*2]
+ Link Size        ???                             16 [*3]
+ FP               Fixed Packet Size Bit           1
+ Packet Size                                      16 [*4]  
+(mmc5r03c.pdf 7.5.4 The Mode Page, 4.2.3.4 Table 17 CONTROL = Track Mode)
+(spc3r23.pdf 6.8 MODE SELECT, 7.4.3 Mode parameter header formats)
+[*1:]
+growisofs takes the Track Mode from 52h READ TRACK INFORMATION, Address/Number
+Type 1, Track 1, Track Information Block byte 5 & 0xf.
+(mmc5r03.pdf 6.27)
+The specs predict that this will be Track Mode 4 (6.27.3.8) and also state that
+default is 5 (7.5.4.12). 4 means: uninterrupted, do not copy. 5 means
+increment, do not copy.
+[*2:]
+8 means: 2048 byte data blocks. growisofs sets this value if Data Mode from
+above 52h READ TRACK INFORMATION is 1 or Fh, which is predicted by the specs
+to be always true.
+(mmc5r03.pdf 6.27.3.10)
+[*3:]
+growisofs (transport.hxx) sets Link Size to 16 for profiles 0011h and 0014h.
+libburn now records the first link size from feature 0021h in its burn_drive
+structure. If another link size item is 16, then 16 is used.
+[*4:]
+growisofs takes Packet Size from 52h. Specs predict it will be 16 (= 32 kiB).
+(mmc5r03.pdf 7.5.4.16)
+
+The writing process is much like in "Writing a session to CD in TAO mode" :
+Next Writeable Address is fetched from the reply of 52h READ TRACK INFORMATION.
+libburn writes full 32 kiB buffers via 2Ah WRITE.
+(mmc5r03c.pdf, 6.27 READ TRACK INFORMATION, 6.44 WRITE)
+When writing is done, it is mandatory to force the drive's buffer to media by
+35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf, 6.41)
+
+The track has to be closed by 5Bh CLOSE TRACK SESSION Close Function 001b.
+growisofs uses the logical track number for that and not FFh like libburn
+does with TAO CD. So libburn obtains the Last Track Number in Last Session
+from the reply of  51h READ DISC INFORMATION requesting Data Type 000b
+"Standard Disc Information".
+(mmc5r03c.pdf 6.3.3.2.2 CLOSE TRACK, 6.22.3.1.)
+
+Multiple tracks are permissible in a single session. After all of them have
+been written, 5Bh CLOSE TRACK SESSION Close Function 010b with Logical Track
+Number 0 closes the session. It depends on the Multi-Session value in mode
+page 05h whether the disc is finalized or stays appendable.
+(mmc5r03c.pdf 6.3.3.2.3)
+
+
+-------------------------------------------------------------------------------
+DAO writing :
+
+DAO is the mode described by feature 002Fh. This feature also gives information
+about capabilities for Burnfree (BUF), Test Write and DVD-RW.
+(mmc5r03c.pdf 5.3.25)
+Experiments with growisofs showed that the track size needs to be predicted
+and may not be exceeded during the write process. (growisofs ran into SCSI
+errors with piped non-ISO-9660 images and with piped ISO-9660 which have
+trailing data.)
+
+Speed can be influenced by B6h SET STREAMING , speed capabilities can be
+inquired by ACh GET PERFORMANCE. It is advised to set only speeds and sizes
+which are returned by ACh.
+(mmc5r03c.pdf 6.39 SET STREAMING, 6.8 GET PERFORMANCE)	
+
+The mode page 05h to be sent :
+ BUFE             Buffer Underrun protection      0=off, 1=on
+ LS_V             Link size valid                 0=false [*3]
+ Test Write       -dummy mode for writing         0=off, 1=on
+ Write Type       Packet/TAO/SAO/RAW              02h = DAO (same code as SAO)
+ Multi-session    Whether to keep appendable      00b = finalize
+ Track Mode       Describes frame type            5  [*1]
+ Data Block Type  Layout of payload blocks        8  [*2]
+ Link Size        ???                             0 [*3]
+ FP               Fixed Packet Size Bit           0 [*3]
+ Packet Size                                      0 [*3]  
+(mmc5r03c.pdf 7.5.4 The Mode Page, 4.2.3.4 Table 17 CONTROL = Track Mode)
+(spc3r23.pdf 6.8 MODE SELECT, 7.4.3 Mode parameter header formats)
+[*1:]
+growisofs takes the Track Mode from 52h READ TRACK INFORMATION, Address/Number
+Type 1, Track 1, Track Information Block byte 5 & 0xf.
+(mmc5r03.pdf 6.27)
+[*2:]
+8 means: 2048 byte data blocks. growisofs sets this value if Data Mode from
+above 52h READ TRACK INFORMATION is 1 or Fh, which is predicted by the specs
+to be always true. (If not: growisofs aborts.)
+(mmc5r03.pdf 6.27.3.10)
+[*3:]
+Link Size, Packet Size and their companions only apply to Write Type 00h.
+
+The session layout must be described by 53h RESERVE TRACK, RMZ=ARSV=0.
+Reservation size should better already be aligned to 32 KiB. It has not been
+tested yet, what happens if not enough data get written.
+(mmc5r03c.pdf 6.31)
+
+Next Writeable Address is fetched from the reply of 52h READ TRACK INFORMATION.
+The reply is supposed to be 0. libburn writes full 32 kiB buffers via
+2Ah WRITE.
+(mmc5r03c.pdf, 6.27 READ TRACK INFORMATION, 6.44 WRITE)
+If the track source delivers less than the announced size then libburn pads up
+by zeros.
+When writing is done, it is mandatory to force the drive's buffer to media by
+35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf, 6.41)
+
+No further finalization is necessary. (I.e. no 5Bh CLOSE TRACK SESSION.)
+
+
+-------------------------------------------------------------------------------
+Obtaining DVD-R[W] multi-session info for extending ISO-9660 filesystems :
+(valid for DVD+R too)
+
+Like with CD it is necessary to obtain the two numbers for mkisofs option -C
+in order to prepare a ISO-9660 filesystem image which by its inner pointers
+matches the block addresses of the future location on media.
+These are the start address of the first track in the last complete session
+and the predicted start address of the track which will host the new image.
+See TAO Multi-Session CD Cookbook for some more info about mkisofs aspects.
+
+
+The first number may be gained by 43h READ TOC/PMA/ATIP Format 0001b which in
+table 478 promises quick access via Start Address Of First Track In Last
+Session.
+(mmc5r03c.pdf 6.26.2.5 table 478, 6.26.3.3.1)
+Regrettably the MMC-5 specs still define a useless reply for non-CD media
+which obviously stems from MMC-3 times when no multi-session was possible
+with non-CD.
+(mmc5r03c.pdf 6.26.3.3.3)
+Both my drives do give a useful reply with the correct number for appendable
+DVD-RW. But not being backed by the specs this method appears unappealing .
+
+Another approach would be a formatted Table of Content, obtained by 43h READ
+TOC/PMA/ATIP Format 0000b. The specs do not totally outrule that this returns
+useful data with non-CD but they define a crippled TOC for multi-session.
+(mmc5r03c.pdf 6.26.3.2.4)
+My LG drive returns a more detailed TOC, my NEC drive stays with the rather
+suboptimal specs. So one would get different TOCs on different drives.
+Nevertheless, the MMC-5 compliant TOC would return the desired number in
+the Track Start address of the track with the highest number before AAh.
+
+Most stable seems the approach to obtain the desired number from the reply
+of 52h READ TRACK INFORMATION, Address/Number Type 01b. The field Logical Block
+Address/Track/Session has to bear the track number of the first track in the
+last complete session. To determine this number one has to determine the
+number of the last session and the number of the last track from 51h READ DISC
+INFORMATION and to iterate over the tracknumber by 52h READ TRACK INFORMATION
+until the first track with the desired session number appears and reveils
+its start address. 
+(mmc5r03c.pdf 6.22 51h DISC, 6.27 52h TRACK)
+This method is very near to fabricating an own TOC. So libburn does this 
+when inspecting the media. If the first number for -C is needed, libburn
+inquires its TOC model for the address of the first track in the last
+complete session. See below for a detailed description of TOC fabrication.
+
+
+The second -C number is the exact prediction of future track start address. It
+is gained like with CD by 52h READ TRACK INFORMATION Type 01b. Different from
+CD one may not use track number FFh but has to use the Last Track in Last
+Session from 51h READ DISC INFORMATION. 
+(mmc5r03c.pdf 6.22 51h DISC, 6.27 52h TRACK)
+
+
+-------------------------------------------------------------------------------
+Obtaining a Table Of Content from DVD-R[W]:
+(valid for DVD+R too)
+
+The raw TOC entries from 43h READ TOC/PMA/ATIP Format 0010b as described with
+CD media are not available with non-CD.
+There is a Format 0000b "Formatted TOC" but this is with non-CD a fictional
+information much at the discretion of the drive. Two drives with the same disc
+may well return different Formatted TOC. They are supposed to be consistent
+only about the last complete session and even there the MMC-5 specification
+6.26.3.2.5 seems to prescribe a structure which does not match the true
+structure of incremental writing to sequential DVD-R[W].
+(mmc5r03c.pdf 6.26.3.2)
+So i prefer not to use this method of getting a TOC.
+
+
+The alternative is to produce an own TOC from information gained by 51h READ
+DISC INFORMATION and by 52h READ TRACK INFORMATION which reveil a CD-like
+structure of sessions and 1:n related tracks.
+
+51h READ DISC INFORMATION Data Type 000b, fields Number of Sessions (Least
+Significant Byte) and Number of Sessions (Most Significant Byte) give the
+number of sessions. The last complete session number of an appendable disc
+is one less because there is an incomplete session at its end. libburn only
+records complete sessions in its TOC model.
+libburn uses Last Track in Last Session as a hint for the range of track
+numbers.
+(mmc5r03c.pdf 6.22)
+
+Next step is to iterate from 1 up to the last track number and to obtain
+the according track info by 52h READ TRACK INFORMATION. Each track tells its
+Session Number (LSB at byte 2, MSB at 33), its Logical Track Start Address,
+its Logical Track Size, and much more which is not needed for a fake CD TOC.
+One may analyze the track info more finely but for this special purpose
+it is enough to discard the tracks which do not belong to complete sessions.
+(mmc5r03c.pdf 6.27)
+
+At the end of each session libburn inserts fake leadout entries into its TOC
+model. Their start address is computed from the start and size of the last
+track of the session.
+
+
+-------------------------------------------------------------------------------
+Hearsay about DVD-R/DL (Dual Layer) :
+
+Meanwhile confirmed by one user:
+
+DVD-R/DL can assume profile 0015h DVD-R Dual Layer Sequential which is supposed
+to behave like DVD-R or 0016h DVD-R Dual Layer Jump which has no counterpart
+with DVD-R.
+
+A half-sentence in mmc5r03c.pdf 6.3.3.3.3 indicates that closing a session
+by 5Bh CLOSE TRACK SESSION Close Function 010b overrides the multi-session bits
+in mode page 05h.
+growisofs applies this function in case of not DAO, though. A comment in
+growisofs_mmc.cpp states: "// DVD-R DL Seq has no notion of multi-session".
+I am not reading this from the specs - but not explicitely the contrary either.
+
+For now libburn will close the session but there is a macro prepared in
+libburn/write.c Libburn_dvd_r_dl_multi_no_close_sessioN which will suppress
+close session if multi-session is demanded.
+
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+                             DVD+R[/DL] Cookbook
+-------------------------------------------------------------------------------
+Inspired by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+backed by Andy Polyakov's http://fy.chalmers.se/~appro/linux/DVD+RW/tools ,
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+
+Media type can be recognized by Current Profile from 46h GET CONFIGURATION.
+(mmc5r03c.pdf 6.6.2.1)
+DVD+R                          001bh
+DVD+R/DL                       002bh
+
+- About empty, appendable and finalized DVD+R
+- Writing a Pseudo Session to DVD+R
+- DVD+R/DL (Dual Layer
+
+The following two chapters of the Sequential DVD-R[W] Cookbook are valid for
+DVD+R media too:
+- Obtaining DVD-R[W] multi-session info for extending ISO-9660 filesystems
+- Obtaining a Table Of Content from DVD-R[W]
+
+-------------------------------------------------------------------------------
+About blank, appendable and finalized DVD+R :
+
+In the beginning a DVD+R holds an empty session and the Incomplete Fragment.
+From these one may spawn reserved fragments or one may write directly to
+the incomplete fragment. As soon as this is done the empty session becomes the
+open session which finally needs to get closed. By closing fragments and
+session a new empty session with empty Incomplete Fragment gets spawned.
+So the disc stays appendable.
+
+A DVD+R may hold 153 closed sessions with a single track each.
+The open session may hold up to 15 open fragments. But on closure of the
+session those fragments together form a single logical track.  So one will
+usually only use a single fragment for sequential writing. 
+(mmc5r03c.pdf 4.3.6.2)
+
+The disc may get finalized by another close command so that no more data can
+be written.
+(mmc5r03c.pdf 6.3.3.4.4) 
+
+
+-------------------------------------------------------------------------------
+Writing a Pseudo Session to DVD+R :
+
+Session writing has to be pseudo because only one logical track per session
+can be distinguished. So actually there have to be written multiple sessions
+to mark multiple tracks. The pseudo session cannot get marked on disc and thus
+the tracks of a pseudo session cannot be grouped accordingly in a TOC.
+
+Speed can be influenced by B6h SET STREAMING , speed capabilities can be
+inquired by ACh GET PERFORMANCE. It is advised to set only speeds and sizes
+which are returned by ACh.
+(mmc5r03c.pdf 6.39 SET STREAMING, 6.8 GET PERFORMANCE)	
+
+No mode page 05h is to be sent.
+growisofs sends a page but the specs clearly state that one shall not do.
+(mmc5r03c.pdf 7.5.3)
+
+It is optional whether a track size is reserved in advance or not. Eventually
+this is done by 53h RESERVE TRACK, RMZ=ARSV=0. Reservation size should better
+already be aligned to 32 KiB.
+(mmc5r03c.pdf 6.31)
+The specs promise to pad up the track if not enough data get written.
+(mmc5r03c.pdf 6.3.3.4.2)
+
+Next Writeable Address is fetched from the reply of 52h READ TRACK INFORMATION
+with track number FFh.
+(mmc5r03c.pdf 6.27)
+Since the fixely set write type is 16-block packet, full 32 kiB buffers have
+to be transmitted via 2Ah WRITE.
+(mmc5r03c.pdf 4.3.6.2.2)
+
+When writing is done, it is mandatory to force the drive's buffer to media by
+35h SYNCHRONIZE CACHE.
+(mmc5r03c.pdf 6.41)
+
+The written fragment (i.e. track-to-be) has to be closed by 5Bh CLOSE TRACK
+SESSION Close Function 001b.
+(mmc5r03c.pdf 6.3.3.4.2)
+libburn obtains the necessary logical track number from Last Track Number in
+Last Session from the reply of 51h READ DISC INFORMATION requesting
+Data Type 000b.
+(mmc5r03c.pdf 6.22) 
+
+After each track 5Bh CLOSE TRACK SESSION Close Function 010b with Logical Track
+Number 0 closes the DVD+R session but keeps the media appendable.
+(mmc5r03c.pdf 6.3.3.4.3)
+If the media shall not stay appendable then the last DVD+R session is to be
+closed by Close Function 101b rather than 010b. This finalizes the media
+"with minimal radius".
+(mmc5r03c.pdf 6.3.3.4.4) 
+
+Note: growisofs has code for that gesture but explicitly avoids to use it, if
+the media was appendable before writing began. Instead it recommends to fill
+up the media with zeros. This gesture nevertheless caused error replies from
+the drives in my own experiments.
+The reason given by Andy Polyakov is that some DVD-ROM drives get mislead by
+the lead-out information of (formerly) appendable media unless the media is
+fully written.
+(http://fy.chalmers.se/~appro/linux/DVD+RW/ , "Compatibility: caveat lector")
+
+Own experiments showed no such problems with PC attached PATA DVD-ROM drives.
+For best DVD-ROM compatibility one should avoid appendable media at all
+by closing them already after the first session.
+
+
+-------------------------------------------------------------------------------
+DVD+R/DL (Dual Layer) :
+
+libburn treats DL media just like their single layer equivalents.
+This seems to work fine for DVD+R/DL, according to a report by nightmorph
+in http://libburnia-project.org/ticket/13 .
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+                              BD-R Cookbook
+-------------------------------------------------------------------------------
+Inspired by reading mmc5r03c.pdf from http://www.t10.org/ftp/t10/drafts/mmc5/
+backed by experiments iwith drive LG GGW H20L.
+
+For libburnia-project.org by Thomas Schmitt <scdbackup@gmx.net>
+
+-------------------------------------------------------------------------------
+Media type can be recognized by Current Profile from 46h GET CONFIGURATION.
+(mmc5r03c.pdf 6.6.2.1)
+BD-R                           0042h
+
+There are two basic recording modes defined: Sequential Recording Mode SRM and
+Random Recording Mode RRM. The latter is optional and for now not topic of this
+text.
+(mmc5r03c.pdf 4.5.3.5)
+
+
+- SRM Formatting
+- Writing a session in SRM-POW
+(- Pseudo-OverWrite SRM+POW)
+
+
+-------------------------------------------------------------------------------
+SRM Formatting:
+
+Despite being write-once media BD-R can optionally carry some formatting.
+
+SRM has a disc structure model with tracks and sessions.
+Several tracks may be open at the same time, each having its own NWA.
+(mmc5r03c.pdf 4.5.3.5.2.2)
+This structure is formatted onto blank media automatically as soon as the
+first serious write attempt occurs.
+(mmc5r03c.pdf 4.5.3.5)
+Before such a write attempt, blank media may be explicitely formatted with
+spares, which provide defect management.
+(mmc5r03c.pdf 4.5.3.5.3)
+Tracks get created from other tracks via RESERVE TRACK splitting.
+(mmc5r03c.pdf 4.5.3.5.2.5)
+
+On top of defect management there may be Pseudo-OverWrite SRM+POW, a costly
+way to write several times to the same LBA. See below.
+Fully sequential states are called SRM-POW.
+(mmc5r03c.pdf 4.5.3.5.4)
+
+Explicite formatting is done by 04h FORMAT UNIT. Its data payload consists
+of a Format List Header and a Format Descriptor. It is advisable to set
+the Immed bit and the FOV bit in header byte number 1. The descriptor should
+be a copy of a descriptor from 23h READ FORMAT CAPACITIES but the size may be
+adjusted within a certain range.
+(mmc5r03c.pdf 6.5, 6.5.3.2, 6.5.3.3)
+
+Format type 00h creates SRM layouts with a default number of spares (or
+eventually RRM) chosen by the format sub-type:
+  00b = SRM with support for POW
+  01b = SRM without POW (but with some spares for defect management)
+  10b = (RRM)
+(mmc5r03c.pdf 6.5.4.2.1.6)
+
+Format type 32h uses the same sub-types but allows to allocate non-default
+amounts of spares. Similar to BD-RE format 31h, three format descriptors are
+offered: #1: default size, #2: maximum spare area, #3: minimal spare.
+The size may be chosen within that range.
+
+The sense behind the Type Dependent Parameters is obscure
+to me. Best will be to set ISA_V and TDMA_V to 0.
+(mmc5r03c.pdf 6.5.4.2.1.17)
+
+
+-------------------------------------------------------------------------------
+Writing a session in SRM:
+
+The procedure and constraints for writing BD-R SRM-POW are very similar to
+DVD+R. libburn flatly re-uses its DVD+R code except the Close Function for
+finalizing a disc.
+
+In short:
+If all written sessions are closed, then there is exactly one NWA.
+In the beginning there is an empty session and track. A new track can be
+written either with pre-announced size (by RESERVE TRACK) or open-end by
+simply starting to write to the NWA. When done the track gets closed by
+close function 001b. Then either session or disc gets closed depending on
+the Close Function used:
+- Close Function 010b closes the session and keeps the media appendable
+  (same as with DVD+R)
+- Close Function 110b finalizes the media and makes it read-only.
+  (differs from libburn DVD+R procedure which uses 101b)
+
+-------------------------------------------------------------------------------
+Pseudo-OverWrite POW: (no used yet by libburn)
+
+This enhancement of SRM emulates overwriting of existing data blocks.
+(mmc5r03c.pdf 4.5.3.5.4)
+
+POW establishes a virtual vLBA space on top of the real address space rLBA.
+All read and write commands deal with vLBA. It seems that track NWAs are
+assumed to be identical in vLBA space and in rLBA space.
+It is not clear whether one may write to vLBA blocks which are neither written
+yet nor at one of the track NWAs. Probably not, or else one could make NWAs run
+into vLBAs which are associated with older rLBAs.
+
+Replacing invalidated blocks consumes addresses in rLBA space at the NWA of
+some track. I.e. no spares are consumed by POW. Nevertheless it is costly by
+a special map called Orphanage. It covers rLBA which have been consumed
+by differing vLBAs. It never shrinks and can grow with each write to remapped
+addresses.
+To avoid heavy Orphanage growth it is advised to write mostly to vLBA which
+still coincide with their rLBA. E.g. those addresses which have neither been
+written as rLBA nor as vLBA yet. So one should begin the vLBA of new sessions
+at the NWA of a sufficiently sized track.
+(mmc5r03c.pdf 4.5.3.5.4.2 , 4.5.3.6.9)
+
+
+-------------------------------------------------------------------------------
+This text is copyright 2011 - 2012 Thomas Schmitt <scdbackup@gmx.net>.
+Permission is granted to copy, modify, and distribute it, as long as the
+references to the original information sources are maintained.
+There is NO WARRANTY, to the extent permitted by law.
+-------------------------------------------------------------------------------
+

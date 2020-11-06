@@ -1,0 +1,16 @@
+How to build gdb?
+$tar -zxf gdb-6.6a.tar.gz
+$cd gdb-6.6
+$mkdir -p /usr/src/arm-linux-3.3/user/gdb/gdb_build
+$./configure --target=arm-linux --prefix=/usr/src/arm-linux-3.3/user/gdb/gdb_build --disable-werror -v
+$make;make install
+
+
+How to build gdbserver?
+set your toolchain if your toolchain is not global. Note: It must be global path.
+$export PATH=$PATH:/usr/src/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/
+$cd gdb-6.6/gdb/gdbserver
+$./configure --target=arm-linux --host=arm-linux --prefix=/usr/src/arm-linux-3.3/user/gdb/gdb_build
+$make CC=arm-unknown-linux-uclibcgnueabi-gcc;make install
+
+And you will find arm-linux-gdb, arm-linux-gdbserver, arm-linux-gdbtui, arm-linux-run in /usr/src/arm-linux-3.3/user/gdb/gdb_build/bin

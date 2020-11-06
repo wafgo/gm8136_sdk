@@ -1,0 +1,35 @@
+# @(#)rules.cnf.in	1.25 13/04/17 Copyright 1998-2013 J. Schilling
+
+EXEEXT= 
+XEXEEXT= 
+OBJEXT= o
+
+YACC= yacc
+BISON= bison
+CPP= arm-unknown-linux-uclibcgnueabi-gcc -E
+CPPX= arm-unknown-linux-uclibcgnueabi-gcc -E
+
+LARGEFILE_CC_OPT= 
+SUN_CC64_OPT= 	# Used on e.g. Solaris and Linux
+HP_CC_ANSI_OPT= 	# Used on HP-UX
+HP_CC_OPT_OPT= 	# Used on HP-UX
+HP_CC_GPROF_OPT= 	# Used on HP-UX
+
+MAY_LINUX_SRC_INCLUDE= no
+
+SCSILIB= 
+LIB_SCSI= 
+LIB_RESOLV= 
+LIB_CRYPT= -lcrypt
+LIB_INTL= 
+LIB_ICONV= 
+LIB_ACL= 		# Full (test/set) ACL users like star
+LIB_ACL_TEST= 	# Test only ACL users like libfind
+LIB_ATTR = 
+LIB_SECDB = 
+LIB_GEN = 
+LIB_PTHREAD = -lpthread
+LIB_RT = 
+LIB_DL= -ldl
+LIB_DIR= 
+LIB_CAP= 

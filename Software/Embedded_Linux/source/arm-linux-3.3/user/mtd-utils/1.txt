@@ -1,0 +1,12 @@
+compr_lzo.c: In function 'jffs2_lzo_cmpr':
+compr_lzo.c:54: warning: passing argument 4 of 'lzo1x_999_compress' from incompatible pointer type
+./include/lzo/lzo1x.h:131: note: expected 'lzo_uint *' but argument is of type 'uint32_t *'
+compr_lzo.c: In function 'jffs2_lzo_decompress':
+compr_lzo.c:74: warning: passing argument 4 of 'lzo1x_decompress_safe' from incompatible pointer type
+./include/lzo/lzo1x.h:76: note: expected 'lzo_uint *' but argument is of type 'uint32_t *'
+/usr/src1/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/../lib/gcc/arm-unknown-linux-uclibcgnueabi/4.4.0/../../../../arm-unknown-linux-uclibcgnueabi/bin/ld: cannot find -lz
+/usr/src1/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/../lib/gcc/arm-unknown-linux-uclibcgnueabi/4.4.0/../../../../arm-unknown-linux-uclibcgnueabi/bin/ld: cannot find -llzo2
+/usr/src1/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/../lib/gcc/arm-unknown-linux-uclibcgnueabi/4.4.0/../../../../arm-unknown-linux-uclibcgnueabi/bin/ld: cannot find -lz
+/usr/src1/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/../lib/gcc/arm-unknown-linux-uclibcgnueabi/4.4.0/../../../../arm-unknown-linux-uclibcgnueabi/bin/ld: cannot find -llzo2
+collect2: ld returned 1 exit status
+make: *** [arm-unknown-linux-uclibcgnueabi/mkfs.jffs2] Error 1

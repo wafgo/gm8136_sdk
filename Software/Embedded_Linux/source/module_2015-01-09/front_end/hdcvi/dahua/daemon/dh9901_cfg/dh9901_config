@@ -1,0 +1,13 @@
+############################################################
+#
+# DH9901 Board Parameter
+#
+############################################################
+DEV_NUM=1
+DEV_I2C_BUS=0
+DEV_IADDR0=0x60
+DEV_IADDR1=0x62
+DEV_IADDR2=0x64
+DEV_IADDR3=0x66
+DEV_VPORT_XCAP_MAPPING=0
+DEV_POLLING_TIME=500

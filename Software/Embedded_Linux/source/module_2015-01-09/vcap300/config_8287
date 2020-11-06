@@ -1,0 +1,96 @@
+############################################################
+#
+# VCAP300 Platform Parameter for GM8287
+#
+# This config file is hardware independent, don't modify it.
+#
+############################################################
+PLAT_VI_MAX = 4
+PLAT_CASCADE_MAX = 0
+PLAT_MASK_WIN_MAX = 8
+PLAT_OSD_WIN_MAX = 8
+PLAT_MARK_WIN_MAX = 4
+PLAT_SCALER_MAX = 4
+PLAT_SCALER0_SCALING = Y
+PLAT_SCALER1_SCALING = Y
+PLAT_SCALER2_SCALING = Y
+PLAT_SCALER3_SCALING = N
+PLAT_SPLIT = N
+PLAT_SHARPNESS = Y
+PLAT_DENOISE = Y
+PLAT_FCS = Y
+PLAT_SCALER_FRAME_RATE_CTRL = N
+PLAT_SCALER_FRAME_RATE_CTRL_VER = 2
+PLAT_CH_MODE_SEL = N
+PLAT_SYNC_CLK_SEL = N
+PLAT_RGB2YUV = Y
+PLAT_RGB_VI_IDX = 3
+PLAT_MASK_WIN_HOLLOW = N
+PLAT_VI_BT601 = N
+PLAT_CASCADE_ISP = N
+PLAT_CASCADE_SDI8BIT = N
+PLAT_OSD_TC_SWAP = N
+PLAT_TC_X_ALIGN = 4
+PLAT_OSD_FRAME_MODE = N
+PLAT_OSD_EDGE_SMOOTH = N
+PLAT_OSD_COLOR_SCHEME = N
+PLAT_OSD_BORDER_PIXEL = 4
+PLAT_REAL_TIME_CH = N
+
+############################################################
+#
+# VCAP300 Parameter Memory
+#
+# PARAM_MEM_SIZE: 944x64(bits) => 7552 Byte
+############################################################
+PLAT_PARAM_MEM_SIZE = 7552
+
+############################################################
+#
+# VCAP300 Internal Memory
+#
+# OSD_SRAM : 8192x12 bits => 8192x64(bits/unit) => 65536 Bytes
+# DISP_SRAM: 2048x9  bits => 2048x64(bits/uint) => 16384 Bytes
+# MARK_SRAM: 1024x64 bits => 8192 Bytes
+# LLI_SRAM : 3072x64 bits => 24576 Bytes
+############################################################
+PLAT_OSD_SRAM_SIZE = 65536
+PLAT_DISP_SRAM_SIZE = 16384
+PLAT_MARK_SRAM_SIZE = 8192
+PLAT_LLI_SRAM_SIZE = 24576
+
+############################################################
+#
+# VCAP300 OSD
+#
+# OSD_PIXEL_BITS      : 1 (bits/pixel)
+# OSD_CHAR_NUM        : (8192x12 bits)/(12(col) x 18(row)) => 455
+# OSD_DISP_NUM        : (2048x9 bits)/9(bits/font)         => 2048
+# OSD_PALETTE_CHAR_NUM: 0
+############################################################
+PLAT_OSD_PIXEL_BITS = 1
+PLAT_OSD_CHAR_NUM = 455
+PLAT_OSD_DISP_NUM = 2048
+PLAT_OSD_PALETTE_CHAR_NUM = 0
+
+############################################################
+#
+# VCAP300 Scaler
+#
+# LINE_BUF_NUM  : 16
+# LINE_BUF_WIDTH: 960 (Pixel)
+# LINE_BUF_SIZE : 16x960x2 => 30720 Byte = 3840(64 bits)
+# HORIZ_SIZE    : 3840 (Pixel)
+############################################################
+PLAT_SCALER_LINE_BUF_NUM = 16
+PLAT_SCALER_LINE_BUF_WIDTH = 960
+PLAT_SCALER_LINE_BUF_SIZE = 3840
+PLAT_SCALER_HORIZ_SIZE = 3840
+
+############################################################
+#
+# VCAP300 MD
+#
+############################################################
+PLAT_MD_GROUPING = Y
+PLAT_MD_GROUP_CH_MAX = 4

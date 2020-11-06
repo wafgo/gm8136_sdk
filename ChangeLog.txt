@@ -1,0 +1,27 @@
+[v1.0]
+  Hardware:
+    None
+  Software:
+    1) gm_graph
+       Support gmlib.cfg with 6M/7M by user definied width & height
+       Support image rotation feature
+       Support AP get YUV raw data feature from scaling substream
+       Support playback by MPEG4 decode feature
+       Fixed GM8136 bootup may occur gm_lib error 
+       Fixed system memory leakage issue
+    2) u-boot
+       Fixed the data error of USB firmware upgrading
+       Fix U-Boot I2C command ("i2c probe", "i2c speed", "i2c md", and "i2c mw")
+       Add LCD bootlogo.
+    3) Audio driver
+       Fix record/playback with different SSP will failed issue.
+       Fix several codec issues such as AAC may enter infinite loop.
+       Add support for record/playback with different sample rate
+       Add support for stereo type GM8138 & GM8137
+    4) Front-end codec
+       Add Nextchip AHD2.0 NVP6124 decoder support (only video part).
+    5) 3DNR driver
+       Enable power saving mode
+       Add new module parameter "config_path" for specifying the path of videograph configuration file
+       Add new supporting resolutions "7M" and "6M"
+       Add parser for additional resolution from vg config

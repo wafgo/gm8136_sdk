@@ -1,0 +1,4 @@
+make -C /usr/src/arm-linux-3.3/linux-3.3-fa/ SDK_MODULE_SRC=/usr/src/arm-linux-3.3/module/ SDK_MODULE_INC= LINUX_SRC=/usr/src/arm-linux-3.3/linux-3.3-fa/ M=/usr/src/arm-linux-3.3/module/ftmcp100 modules
+make[1]: Entering directory `/usr/src/arm-linux-3.3/linux-3.3-fa'
+  CC [M]  /usr/src/arm-linux-3.3/module/ftmcp100/fmcp.o
+make[1]: Leaving directory `/usr/src/arm-linux-3.3/linux-3.3-fa'

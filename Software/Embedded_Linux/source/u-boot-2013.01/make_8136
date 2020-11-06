@@ -1,0 +1,4 @@
+make distclean
+make gm8136_config
+make dep
+make all

@@ -1,0 +1,388 @@
+-------------------------------------------------------------------------------
+
+Users of modern desktop Linux installations report misburns with CD/DVD
+recording due to concurrency problems.
+
+This text describes two locking protocols which have been developed by our
+best possible effort. But finally they rather serve as repelling example of
+what would be needed in user space to achieve an insufficient partial solution.
+
+Ted Ts'o was so friendly to help as critic with his own use cases. It turned
+out that we cannot imagine a way in user space how to cover reliably the needs
+of callers of libblkid and the needs of our burn programs.
+
+-------------------------------------------------------------------------------
+Content:
+
+The "Delicate Device Locking Protocol" shall demonstrate our sincere
+consideration of the problem.
+
+"What are the Stumble Stones ?" lists reasons why the effort finally failed.
+
+-----------------------------------------------------------------------------
+
+
+                      Delicate Device Locking Protocol
+               (a joint sub project of cdrkit and libburnia)
+                       (contact: scdbackup@gmx.net )
+
+Our projects provide programs which allow recording of data on CD or DVD.
+We encounter an increasing number of bug reports about spoiled burn runs and
+wasted media which obviously have one common cause: interference by other
+programs which access the drive's device files.
+There is some riddling about which gestures exactly are dangerous for
+ongoing recordings or can cause weirdly misformatted drive replies to MMC 
+commands. 
+We do know, nevertheless, that these effects do not occur if no other program
+accesses a device file of the drive while our programs use it. 
+
+DDLP shall help to avoid collisions between programs in the process of
+recording to a CD or DVD drive and other programs which access that drive.
+The protocol intends to provide advisory locking. So any good-willing program
+has to take some extra precautions to participate.
+
+If a program does not feel vulnerable to disturbance, then the precautions
+impose much less effort than if the program feels the need for protection.
+
+Two locking strategies are specified:
+DDLP-A operates on device files only. It is very Linux specific.
+DDLP-B adds proxy lock files, inspired by FHS /var/lock standard.
+
+
+                                  DDLP-A
+
+This protocol relies on the hardly documented feature open(O_EXCL | O_RDWR)
+with Linux device files and on POSIX compliant fcntl(F_SETLK).
+
+Other than the original meaning of O_EXCL with creating regular files, the
+effect on device files is mutual exclusion of access. I.e. if one
+filedescriptor is open on that combination of major-minor device number, then
+no other open(O_EXCL) will succeed. But open() without O_EXCL would succeed.
+So this is advisory and exclusive locking.
+With kernel 2.6 it seems to work on all device drivers which might get used
+to access a CD/DVD drive.
+
+The vulnerable programs shall not start their operation before they occupied a
+wide collection of drive representations.
+Non-vulnerable programs shall take care to detect the occupation of _one_ such
+representation.
+
+                          So for Friendly Programs
+
+A program which does not feel vulnerable to disturbance is urged to access
+CD/DVD drives by opening a file descriptor which will uphold the lock
+as long as it does not get closed. There are two alternative ways to achieve
+this.
+Very reliable is  
+
+  open( some_path , O_EXCL | ...)
+
+But O_EXCL imposes restrictions and interferences:
+- O_EXCL | O_RDONLY does not succeed with /dev/sg* !
+- O_EXCL cannot provide shared locks for programs which only want to lock
+  against burn programs but not against their own peers.
+- O_EXCL keeps from obtaining information by harmless activities.
+- O_EXCL already has a meaning with devices which are mounted as filesystems.
+  This priority meaning is more liberal than the one needed for CD/DV recording
+  protection.
+
+So it may be necessary to use a cautious open() without O_EXCL and to aquire
+a POSIX lock via fcntl(). "Cautious" means to add O_NDELAY to the flags of
+open(), because this is declared to avoid side effects within open().
+
+With this gesture it is important to use the paths expected by our burn
+programs: /dev/sr[0..255] /dev/scd[0..255] /dev/sg[0..255] /dev/hd[a..z]
+because fcntl(F_SETLK) does not lock the device but only a device-inode.
+
+  std_path = one of the standard device files:
+               /dev/sr[0..255] /dev/scd[0..255] /dev/sg[0..255] /dev/hd[a..z]
+             or a symbolic link pointing to one of them.
+  open( std_path , ... | O_NDELAY)
+  fcntl(F_SETLK) and close() on failure
+  ... eventually disable O_NDELAY by fcntl(F_SETFL) ...
+
+There is a pitfall mentioned in man 2 fcntl :
+ "locks are automatically released [...] if it closes any file descriptor
+  referring to a file on which locks are held. This is bad [...]"
+So you may have to re-lock after some temporary fd got closed.
+
+
+                            Vulnerable Programs
+
+For programs which do feel vulnerable, O_EXCL would suffice for the /dev/hd*
+device file family and their driver. But USB and SATA recorders appear with
+at least two different major-minor combinations simultaneously.
+One as /dev/sr* alias /dev/scd*, the other as /dev/sg*.
+The same is true for ide-scsi or recorders attached to SCSI controllers.
+
+So, in order to lock any access to the recorder, one has to open(O_EXCL)
+not only the device file that is intended for accessing the recorder but also
+a device file of any other major-minor representation of the recorder.
+This is done via the SCSI address parameter vector (Host,Channel,Id,Lun)
+and a search on standard device file paths /dev/sr* /dev/scd* /dev/sg*.
+In this text the alternative device representations are called "siblings".
+
+For finding them, it is necessary to apply open() to many device files which
+might be occupied by delicate operations. On the other hand it is very
+important to occupy all reasonable representations of the drive.
+So the reading of the (Host,Channel,Id,Lun) parameters demands an 
+open(O_RDONLY | O_NDELAY) _without_ fcntl() in order to find the outmost
+number of representations among the standard device files. Only ioctls
+SCSI_IOCTL_GET_IDLUN and SCSI_IOCTL_GET_BUS_NUMBER are applied.
+Hopefully this gesture is unable to cause harmful side effects on kernel 2.6.
+
+At least one file of each class sr, scd and sg should be found to regard
+the occupation as satisfying. Thus corresponding sr-scd-sg triplets should have
+matching ownerships and access permissions.
+One will have to help the sysadmins to find those triplets.
+
+A spicy detail is that sr and scd may be distinct device files for the same
+major-minor combination.  In this case fcntl() locks on both are needed
+but O_EXCL can only be applied to one of them.
+
+
+An open and free implementation ddlpa.[ch] is provided as
+  http://libburnia.pykix.org/browser/libburn/trunk/libburn/ddlpa.h?format=txt
+  http://libburnia.pykix.org/browser/libburn/trunk/libburn/ddlpa.c?format=txt
+The current version of this text is 
+  http://libburnia.pykix.org/browser/libburn/trunk/doc/ddlp.txt?format=txt
+
+Put ddlpa.h and ddlpa.c into the same directory and compile as test program by
+  cc -g -Wall -DDDLPA_C_STANDALONE -o ddlpa ddlpa.c
+
+Use it to occupy a drive's representations for a given number of seconds
+  ./ddlpa /dev/sr0 300
+
+It should do no harm to any of your running activities.
+If it does: Please, please alert us.
+
+Your own programs should not be able to circumvent the occupation if they
+obey above rules for Friendly Programs.
+Of course ./ddlpa should be unable to circumvent itself.
+
+A successfull occupation looks like
+  DDLPA_DEBUG: ddlpa_std_by_rdev("/dev/scd0") = "/dev/sr0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/sr0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/scd0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/sg0"
+  DDLPA_DEBUG: ddlpa_occupy()        : '/dev/scd0'
+  DDLPA_DEBUG: ddlpa_occupy() O_EXCL : '/dev/sg0'
+  DDLPA_DEBUG: ddlpa_occupy() O_EXCL : '/dev/sr0'
+  ---------------------------------------------- Lock gained
+  ddlpa: opened           /dev/sr0
+  ddlpa: opened siblings: /dev/scd0 /dev/sg0
+  slept 1 seconds of 300
+
+Now an attempt via device file alias /dev/NEC must fail:
+  DDLPA_DEBUG: ddlpa_std_by_rdev("/dev/NEC") = "/dev/sg0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/sr0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/scd0"
+  DDLPA_DEBUG: ddlpa_collect_siblings() found "/dev/sg0"
+  Cannot exclusively open '/dev/sg0'
+  Reason given    : Failed to open O_RDWR | O_NDELAY | O_EXCL : '/dev/sr0'
+  Error condition : 16 'Device or resource busy'
+
+With hdc, of course, things are trivial
+  DDLPA_DEBUG: ddlpa_std_by_rdev("/dev/hdc") = "/dev/hdc"
+  DDLPA_DEBUG: ddlpa_occupy() O_EXCL : '/dev/hdc'
+  ---------------------------------------------- Lock gained
+  ddlpa: opened           /dev/hdc
+  slept 1 seconds of 1
+
+
+Ted Ts'o provided program  open-cd-excl  which allows to explore open(2) on
+device files with combinations of read-write, O_EXCL, and fcntl().
+(This does not mean that Ted endorsed our project yet. He helps exploring.)
+
+Friendly in the sense of DDLP-A would be any run which uses at least one of
+the options -e (i.e. O_EXCL) or -f (i.e. F_SETLK, applied to a file
+descriptor which was obtained from a standard device file path).
+The code is available under GPL at
+  http://libburnia.pykix.org/browser/libburn/trunk/test/open-cd-excl.c?format=txt
+To be compiled by
+  cc -g -Wall -o open-cd-excl open-cd-excl.c
+
+Options:
+  -e : open O_EXCL
+  -f : aquire lock by fcntl(F_SETLK) after sucessful open
+  -i : do not wait in case of success but exit 0 immediately
+  -r : open O_RDONLY , with -f use F_RDLCK
+  -w : open O_RDWR   , with -f use F_WRLCK
+  plus the path of the devce file to open.
+
+Friendly Programs would use gestures like:
+  ./open-cd-excl -e -r /dev/sr0
+  ./open-cd-excl -e -w /dev/sg1
+  ./open-cd-excl -e -w /dev/black-drive
+  ./open-cd-excl -f -r /dev/sg1
+  ./open-cd-excl -e -f -w /dev/sr0
+
+Ignorant programs would use and cause potential trouble by:
+  ./open-cd-excl -r /dev/sr0
+  ./open-cd-excl -w /dev/sg1
+  ./open-cd-excl -f -w /dev/black-drive
+where "/dev/black-drive" is _not_ a symbolic link to
+any of /dev/sr* /dev/scd* /dev/sg* /dev/hd*, but has an own inode.
+
+Prone to failure without further reason is:
+  ./open-cd-excl -e -r /dev/sg1
+
+
+----------------------------------------------------------------------------
+
+                                  DDLP-B
+
+This protocol relies on proxy lock files in some filesystem directory. It can
+be embedded into DDLP-A or it can be used be used standalone, outside DDLP-A.
+
+DDLP-A shall be kept by DDLP-B from trying to access any device file which
+might already be in use. There is a problematic gesture in DDLP-A when SCSI
+address parameters are to be retrieved. For now this gesture seems to be
+harmless. But one never knows.
+Vice versa DDLP-B may get from DDLP-A the service to search for SCSI device
+file siblings. So they are best as a couple.
+
+But they are not perfect. Not even as couple. fcntl() locking is flawed.
+ 
+
+There is a proxy file locking protocol described in FHS:
+  http://www.pathname.com/fhs/pub/fhs-2.3.html#VARLOCKLOCKFILES
+
+But it has shortcommings (see below). Decisive obstacle for its usage are the
+possibility for stale locks and the lack of shared locks.
+
+DDLP-B rather defines a "path prefix" which is advised to be
+  /tmp/ddlpb-lock-
+This prefix will get appended "device specific suffixes" and then form the path
+of a "lockfile".
+Not the existence of a lockfile but its occupation by an fcntl(F_SETLK) will
+constitute a lock. Lockfiles may get prepared by the sysadmin in directories
+where normal users are not allowed to create new files. Their rw-permissions
+then act as additional access restriction to the device files.
+The use of fcntl(F_SETLK) will prevent any stale locks after the process ended.
+It will also allow to obtain shared locks as well as exclusive locks.
+
+There are two classes of device specific suffixes:
+
+- Device file path suffix. Absolute paths only. "/" gets replaced by "_-". 
+  Eventual "_-" in path gets replaced by "_-_-". The leading group of "_-"
+  is always interpreted as a group of "/", though.  E.g.:
+    /dev/sr0           <-> "_-dev_-sr0"
+    /mydevs/burner/nec <-> "_-mydevs_-burners_-nec"
+    /dev/rare_-name    <-> "_-dev_-rare_-_-name"
+    ///strange/dev/x   <-> "_-_-_-strange_-dev_-x"
+
+- st_rdev suffix. A hex representation of struct stat.st_rdev. Capital letters.
+  The number of characters is pare with at most one leading 0. I.e. bytewise
+  printf("%2.2X") beginning with the highest order byte that is not zero.
+  E.g. : "0B01", "2200", "01000000000004001"
+
+If a lockfile does not exist and cannot be created then this shall not keep
+a program from working on a device. But if a lockfile exists and if permissions
+or locking state do not allow to obtain a lock of the appropirate type, then
+this shall prevent any opening of device file in question resp. shall cause
+immediate close(2) of an already opened device file.
+
+The vulnerable programs shall not start their operation before they locked a
+wide collection of drive representations.
+
+Non-vulnerable programs shall take care to lock the suffix resulting from the
+path they will be using and the suffix from the st_rdev from that path.
+The latter is to be obtained by call stat(2).
+
+Locks get upheld as long as their file descriptor is not closed or no other
+incident as described in man 2 fcntl releases the lock.
+
+So with shared locks there are no imandatory further activities after they
+have been obtained.
+
+In case of exclusive locks, the file has to have been opened for writing and
+must be truncated to 0 bytes length immediately after obtaining the lock.
+When releasing an exclusive lock it is a nice gesture to
+already do this truncation.
+Then a /var/lock/ compatible first line has to be written.
+E.g. by:  printf("%10u\n",(unsigned) getpid()) yielding "      1230\n".
+
+Any further lines are optional. They shall have the form Name=Value and must
+be printable cleartext. If such further lines exist, then the last one must
+have the name "endmark".
+Defined Names are:
+  hostid   =hostname of the machine where the process number of line 1 is valid
+  start    =start time of lock in seconds since 1970. E.g: 1177147634.592410
+  program  =self chosen name of the program which obtained the lock
+  argv0    =argv[0] of that program
+  mainpath =device file path which will be used for operations by that program
+  path     =device file path which lead to the lock
+  st_rdev  =st_rdev suffix which is associated with path
+  scsi_hcil=eventual SCSI parameters Host,Channel,Id,Lun
+  scsi_bus =eventual SCSI parameter Bus
+  endmark  =declares the info as complete.
+Any undefined name or a line without "=" shall be handled as comment.
+"=" in the value is allowed. Any line beginning with an "=" character is an
+extension of the previous value.
+
+If programs encounter an exclusive lock, they are invited to read the content
+of the lockfile anyway. But they should be aware that the info might be in the
+progress of emerging. There is a race condition possible in the short time
+between obtaining the exclusive lock and erasing the file content.
+If it is not crucial to obtain most accurate info then one may take the newline
+of the first line as indicator of a valid process number and the "endmark"
+name as indicator that the preceding lines are valid.
+Very cautious readers should obtain the info twice with a decent waiting period
+inbetween. Only if both results are identical they should be considered valid.
+
+
+There is no implementation of DDLP-B yet.
+
+
+ 
+----------------------------------------------------------------------------
+What are the Stumble Stones ?
+----------------------------------------------------------------------------
+
+Any of the considered locking mechanisms has decisive shortcommings
+which keeps it from being the solution to all known legitimate use cases.
+
+The attempt has failed to compose a waterproof locking mechanism from means of
+POSIX, FHS and from hardly documented Linux open(O_EXCL) on device files.
+The resulting mechanisms would need about 1000 lines of code and still do
+not close all gaps resp. cover the well motivated use cases.
+This attempt you see above: DDLP-A and DDLP-B.
+
+
+Summary of the reasons why the established locking mechanisms do not suffice:
+
+None of the mechanisms can take care of the double device driver identity
+sr versus sg. To deduce the one device file from the other involves the need
+to open many other (possibly unrelated) device files with the risk to disturb
+them.
+This hard to solve problem is aggravated by the following facts.
+
+Shortcommings of Linux specific open(O_EXCL) :
+
+- O_EXCL | O_RDONLY does not succeed with /dev/sg*
+- O_EXCL cannot provide shared locks for programs which only want to lock
+  against burn programs but not against their own peers.
+- O_EXCL keeps from obtaining information by harmless activities.
+- O_EXCL already has a meaning with devices which are mounted as filesystems.
+  This priority meaning is more liberal than the one needed for CD/DV recording
+  protection.
+
+Shortcommings of POSIX fcntl(F_SETLK) :
+
+- fcntl() demands an open file descriptor. open(2) might have side effects.
+- fcntl() locks can be released inadvertedly by submodules which just open and
+  close the same file (inode ?) without refering to fcntl locks in any way.
+  See man 2 fcntl "This is bad:". 
+  Stacking of software modules is a widely used design pattern. But fcntl()
+  cannot cope with that.
+
+Shortcommings of FHS /var/lock/ :
+
+- Stale locks are possible.
+- It is necessary to create a file (using the _old_ meaning of O_EXCL flag ?)
+  but /var/lock/ might not be available early during system start and it often
+  has restrictive permission settings.
+- There is no way to indicate a difference between exclusive and shared locks.
+- The FHS prescription relies entirely on the basename of the device file path.
+

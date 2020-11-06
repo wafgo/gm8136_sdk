@@ -1,0 +1,45 @@
+-ii1	input image 1
+-ii2	input image 2
+-op	operation			
+[0:hsi 1:rgb 2:integral image 3:squared integral image 4:de-interleave YC 5:histogram 6:convolution 7:morphology 8:sad 9:roster 10:set template number]
+
+-iw	image width
+-ih	image height
+-sw	swap				
+[0:no_sw 1:sw_yc 2:sw_cbcr 3:sw_yc & cbcr]
+
+-if	image format			
+[0:packet 1:planar 2:binary]
+
+-en	endian 				
+[0:no_sw_end 1:sw_endianess]
+
+printf("hsi \n");
+printf("ivs_ap -i1 -op -iw -ih -sw \n");
+	
+printf("rgb \n");
+printf("ivs_ap -i1 -op -iw -ih -sw \n");
+
+printf("integral image \n");
+printf("ivs_ap -i1 -op -iw -ih -if -sw -en\n");
+
+printf("squared integral image \n");
+printf("ivs_ap -i1 -op -iw -ih -if -sw -en\n");
+
+printf("de-interleave YC\n");
+printf("ivs_ap -i1 -op -iw -ih -sw \n");
+
+printf("histogram\n");
+printf("ivs_ap -i1 -op -iw -ih -if -sw -en\n");
+
+printf("convolution\n");
+printf("ivs_ap -i1 -op -iw -ih -if -sh -bth -en\n");
+
+printf("morphology\n")	;
+printf("ivs_ap -i1 -op -iw -ih -if -mp -sto -mth\n");
+
+printf("sad\n")	;
+printf("ivs_ap -i1 -i2 -op -iw -ih -bl -bth -en \n");
+
+printf("roster\n")	;
+printf("ivs_ap -i1 -i2 -op -iw -ih -rop -en \n");	

@@ -1,0 +1,4 @@
+make distclean
+make gm8287_config
+make dep
+make all

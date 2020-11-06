@@ -1,0 +1,581 @@
+<HTML>
+
+<HEAD>
+<META NAME="description" CONTENT="cdrskin, a limited cdrecord compatibility wrapper for libburn">
+<META NAME="keywords" CONTENT="cdrskin, libburn, libburnia, burn, CD, DVD, BD, linux, recording, burning, CD-R, CD-RW, DVD-R, DVD-R DL, DVD-RW, DVD+RW, DVD+R, DVD+R DL, DVD-RAM, BD-RE, BD-R, cdrecord, compatible, scdbackup">
+<META NAME="robots" CONTENT="follow">
+<TITLE>cdrskin homepage english</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="#F5DEB3" TEXT=#000000 LINK=#0000A0 VLINK=#800000>
+<FONT SIZE=+1>
+
+<CENTER>
+<A HREF="http://en.wikipedia.org/wiki/D%C3%B6ner_kebab">
+<IMG SRC="doener_150x200_tr_octx.png" BORDER=0
+     ALT="cdrskin logo: Doener mit Scharf">
+</A>
+<P><H2> Homepage of </H2>
+<H1> cdrskin </H1>
+
+<H2>Limited cdrecord compatibility wrapper for libburn</H2>
+</CENTER>
+
+<P>
+<H2>Purpose:</H2>
+Burns preformatted data to CD, DVD, and BD media:<BR>
+CD-R, DVD-R, DVD-R DL, DVD+R, DVD+R DL, BD-R, CD-RW,
+DVD-RW, DVD-RAM, DVD+RW, BD-RE
+</P>
+<P>
+
+<HR>
+
+<A HREF="#download">Direct hop to download links -></A>
+
+<P>
+<H2>Hardware requirements:</H2>
+About any CD, DVD, or BD recorder produced in the recent ten years.
+<BR>
+<A HREF="http://libburnia-project.org">libburn</A>
+supports recorders which are compliant to standards MMC-1 for CD and
+MMC-5 for DVD or BD. Linux, FreeBSD, and Solaris allow to access drives
+connected via SCSI, PATA (aka IDE, ATA), USB, or SATA.
+<BR>
+</P>
+
+<P>
+<H2>Software requirements :</H2>
+<DL>
+<DT>Linux with kernel 2.4 or higher (and libc, of course) :</DT>
+<DD>With kernel 2.4 an ATA drive has to be under ide-scsi emulation.</DD>
+<DD>With kernel 2.6 the drive should not be under ide-scsi.</DD>
+<DT>or FreeBSD (with libc, of course) :</DT>
+<DD>ATA and SATA drives need atapicam running.</DD>
+<DD>libcam has to be installed.</DD>
+<DT>or Solaris (with libc, of course) :</DT>
+<DD>Tested on kernel 5.11, hopefully suitable for older ones too.</DD>
+<DT>libpthread</DT>
+<DD>is supposed to be a standard system component.</DD>
+</DL>
+</P>
+
+<P>
+<H2>
+GPL software included:<BR>
+</H2>
+<DL>
+<DT>libburn-1.3.2</DT>
+<DD>(founded by Derek Foreman and Ben Jansens,
+developed and maintained since August 2006 by
+Thomas Schmitt from team of libburnia-project.org)
+</DD>
+<DD>transfers data to CD, DVD, BD</DD>
+</DL>
+</P>
+
+<P>
+This program system has been tested on Intel/AMD with Linux, FreeBSD,
+and OpenSolaris based operating systems.<BR>
+Ports to other usable systems are appreciated. Reports are welcome.
+</P>
+
+<HR>
+
+<P>
+<H2>Special features:</H2>
+<UL>
+<LI>Source code is independent of 
+<A HREF="http://cdrecord.berlios.de/old/private/cdrecord.html">cdrecord</A>
+</LI>
+</UL>
+</P>
+
+<P>
+<H2>Commands:</H2>
+<DL>
+<DT>The most common options of cdrecord for data and audio on CD media
+are provided in a compatible way.<BR>
+On all DVD media, cdrskin is able to perform any recording job
+which is possible with cdrecord.
+Other than with cdrecord, option -multi is supported with many DVD types and
+BD-R. Write mode -tao works with anything but quickly blanked DVD-RW and
+DVD-R DL, which both support no -multi.
+</DT>
+<BR><BR>
+<DT>Get an overview of drives and their addresses</DT>
+<DD>#<KBD>&nbsp;cdrskin -scanbus</KBD></DD>
+<DD>#<KBD>&nbsp;cdrskin dev=ATA -scanbus</KBD></DD>
+<DD>#<KBD>&nbsp;cdrskin --devices</KBD></DD>
+<DT>Being superuser avoids permission problems with /dev/srN resp. /dev/hdX .
+</DT>
+<DT>Ordinary users should then get granted access to the /dev files
+as listed by option --devices. Linux and FreeBSD demand rw-permission.
+On Solaris it is r-permission and privileges "basic,sys_devices".</DT>
+<DT>&nbsp;</DT>
+
+<DT>Get info about a particular drive or loaded media:</DT>
+<DD>$<KBD>&nbsp;cdrskin dev=0,1,0 -checkdrive</KBD></DD>
+<DD>$<KBD>&nbsp;cdrskin dev=ATA:1,0,0 -v -atip</KBD></DD>
+<DD>$<KBD>&nbsp;cdrskin dev=/dev/hdc -minfo</KBD></DD>
+
+<DT>Prepare CD-RW or DVD-RW for re-use, DVD-RAM or BD-RE for first use:</DT>
+<DD>$<KBD>&nbsp;cdrskin -v dev=/dev/sg1 blank=as_needed -eject</KBD></DD>
+
+<DT>Format DVD-RW to avoid need for blanking before re-use:</DT>
+<DD>$<KBD>&nbsp;cdrskin -v dev=/dev/sr0 blank=format_overwrite</KBD></DD>
+
+<DT>De-format DVD-RW to make it capable of multi-session again:</DT>
+<DD>$<KBD>&nbsp;cdrskin -v dev=/dev/sr0 blank=deformat_sequential</KBD></DD>
+
+<DT>Write ISO-9660 filesystem image as only one to blank or formatted media:
+</DT>
+<DD>$<KBD>&nbsp;cdrskin -v dev=/dev/hdc speed=12 fs=8m \</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;blank=as_needed -eject padsize=300k my_image.iso</KBD></DD>
+
+<DT>Write compressed afio archive on-the-fly
+(not DVD-R DL or minimally blanked DVD-RW):</DT>
+<DD>$<KBD>&nbsp;find . | afio -oZ - | \</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;cdrskin -v dev=0,1,0 fs=32m speed=8 \</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;blank=as_needed padsize=300k -</KBD></DD>
+
+<DT>Write several sessions to the same CD, DVD-R[W] or DVD+R[/DL]:</DT>
+<DD>$<KBD>&nbsp;cdrskin dev=/dev/hdc -v padsize=300k -multi 1.iso</KBD>
+</DD>
+<DD>$<KBD>&nbsp;cdrskin dev=/dev/hdc -v padsize=300k -multi 2.iso</KBD>
+</DD>
+<DD>$<KBD>&nbsp;cdrskin dev=/dev/hdc -v padsize=300k -multi 3.iso</KBD>
+</DD>
+<DD>$<KBD>&nbsp;cdrskin dev=/dev/hdc -v padsize=300k 4.iso</KBD></DD>
+
+<DT>Get multi-session info for option -C of program mkisofs:</DT>
+<DD>$<KBD>&nbsp;c_values=$(cdrskin dev=/dev/sr0 -msinfo 2>/dev/null)</KBD></DD>
+<DD>$<KBD>&nbsp;mkisofs ... -C "$c_values" ...</KBD></DD>
+
+<DT>Inquire free space on media for a -multi run:</DT>
+<DD>$<KBD>&nbsp;x=$(cdrskin dev=/dev/sr0 -multi \</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;--tell_media_space 2>/dev/null)</KBD></DD>
+<DD>$<KBD>&nbsp;echo "Available: $x blocks of 2048 data bytes"</KBD></DD>
+
+<DT>Accelerate BD-RE writing to full nominal speed after the first 250 MB</DT>
+<DD>$<KBD>&nbsp;cdrskin ... stream_recording=250m ...</KBD>
+
+<DT>Write audio tracks to CD:</DT>
+<DD>$<KBD>&nbsp;cdrskin -v dev=ATA:1,0,0 speed=48 -sao \</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;track1.wav track2.au -audio -swab track3.raw</KBD></DD>
+
+<DT>Get overview of the cdrecord compatible options:</DT>
+<DD>$<KBD>&nbsp;<A HREF="cdrskin_help">cdrskin -help</A></KBD></DD>
+
+<DT>Get overview of the non-cdrecord options:</DT>
+<DD>$<KBD>&nbsp;<A HREF="cdrskin__help">cdrskin --help</A></KBD></DD>
+
+<DT>Read the detailed manual page:</DT>
+<DD>$<KBD>&nbsp;<A HREF="man_1_cdrskin.html">man cdrskin</A></KBD></DD>
+</DL>
+<DL>
+<DT>Read about the standard for which cdrskin is striving:</DT>
+<DD>$<KBD>&nbsp;
+<A HREF="http://cdrecord.berlios.de/old/private/man/cdrecord-2.0.html">
+man cdrecord</A></KBD></DD>
+<DD><B>Do not bother Joerg Schilling with any cdrskin problems.</B>
+(Be cursed if you install cdrskin as "cdrecord" without clearly forwarding
+ this "don't bother Joerg" demand.)
+</DD>
+</DL>
+<DL>
+<DT>Learn to know a more versatile way to burn ISO 9660 formatted data</DT>
+<DD>
+Standalone ISO 9660 multi-session CD/DVD/BD tool
+<A HREF="http://scdbackup.sourceforge.net/xorriso_eng.html">xorriso</A>.
+</DD>
+</DL>
+
+</P>
+
+<HR>
+
+<A NAME="download"></A>
+
+<P>
+<DL>
+<DT>Download as source code (see README):</DT>
+<DD><A HREF="cdrskin-1.3.2.tar.gz">cdrskin-1.3.2.tar.gz</A>
+(950 KB).
+</DD>
+<DD><A HREF="cdrskin-1.3.2.tar.gz.sig">cdrskin-1.3.2.tar.gz.sig</A></DD>
+<DD>
+(detached GPG signature for verification by
+<KBD>gpg --verify cdrskin-1.3.2.tar.gz.sig cdrskin-1.3.2.tar.gz</KBD>
+<BR>
+after <KBD>gpg --keyserver keys.gnupg.net --recv-keys ABC0A854</KBD>).
+</DD>
+<DD>
+The cdrskin tarballs are source code identical with libburn releases
+of the same version number.
+They get produced via a different procedure, though.<BR>
+cdrskin is part of libburn - full libburn is provided with cdrskin releases.
+</DD>
+
+<!-- This is not offered any more since spring 2008
+<DD>&nbsp;</DD>
+<DT>Download as single x86 binaries (untar and move to /usr/bin/cdrskin):</DT>
+<DD><A HREF="cdrskin_0.4.2.pl00-x86-suse9_0.tar.gz">
+cdrskin_0.4.2.pl00-x86-suse9_0.tar.gz</A>, (110 KB),
+<DL>
+<DD>runs on SuSE 9.0 (2.4.21) , RIP-14.4 (2.6.14) ,
+ Gentoo (2.6.15 x86_64 Athlon).</DD>
+</DL>
+<DD><A HREF="cdrskin_0.4.2.pl00-x86-suse9_0-static.tar.gz">
+cdrskin_0.4.2.pl00-x86-suse9_0-static.tar.gz</A>, (310 KB), -static compiled,
+<DL>
+<DD>runs on SuSE 7.2 (2.4.4), and on the systems above.</DD>
+</DL>
+</DD>
+-->
+
+
+</DL>
+<DL><DT>Documentation:</DT>
+<DD><A HREF="README_cdrskin">README</A> an introduction</DD>
+<DD><A HREF="cdrskin__help">cdrskin --help</A> non-cdrecord options</DD>
+<DD><A HREF="cdrskin_help">cdrskin -help</A> cdrecord compatible options</DD>
+<DD><A HREF="man_1_cdrskin.html">man cdrskin</A> the manual page</DD>
+<DD>&nbsp;</DD>
+</DL>
+<DL><DT>Contact:</DT>
+<DD>Thomas Schmitt, <A HREF="mailto:scdbackup@gmx.net">scdbackup@gmx.net</A></DD>
+<DD>libburn development mailing list,
+<A HREF="mailto:libburn-hackers@pykix.org">libburn-hackers@pykix.org</A></DD>
+</DL>
+<DL><DT>License:</DT>
+<DD><A HREF="COPYING_cdrskin">GPL</A>, an <A HREF="http://www.opensource.org/">Open Source</A> approved license</DD>
+<DD>&nbsp;</DD>
+</DL>
+</P>
+
+<HR>
+
+<P>
+Enhancements towards previous stable version cdrskin-1.3.0:
+<UL>
+<LI>
+New option textfile_to_v07t=
+</LI>
+<LI>
+New options cdtext_to_textfile= and cdtext_to_v07t=
+</LI>
+<LI>
+New options extract_audio_to= , extract_tracks= , extract_basename= ,
+--extract_dap
+</LI>
+<LI>
+Improved granularity of SCSI log time measurement, now with timestamp
+</LI>
+<LI>
+New cdrskin option --pacifier_with_newline
+</LI>
+<!--
+<LI>none</LI>
+-->
+</UL>
+
+Bug fixes towards cdrskin-1.3.0:
+<UL>
+<LI>
+cdrskin -msinfo on DVD and BD reported
+old session start = next writable address.
+Regression introduced by version 1.2.8.
+(Also fixed by patch release 1.3.0.pl01 in may 2013.)
+</LI>
+<LI>
+The signal handler aborted on SIGCONT, SIGTSTP, SIGTTIN, SIGTTOU
+</LI>
+<!--
+<LI>none</LI>
+-->
+</UL>
+
+<HR>
+
+<P>
+<DL>
+<DT><H3>Development snapshot, version 1.3.3 :</H3></DT>
+<DD>Enhancements towards current stable version 1.3.2:
+<UL>
+<LI>none yet</LI>
+<!--
+<LI>none yet</LI>
+-->
+
+</UL>
+</DD>
+
+<DD>Bug fixes towards cdrskin-1.3.2:
+<UL>
+<LI>none yet</LI>
+<!--
+<LI>none yet</LI>
+-->
+</UL>
+</DD>
+
+<DD>&nbsp;</DD>
+<DD><A HREF="README_cdrskin_devel">README 1.3.3</A>
+<DD><A HREF="cdrskin__help_devel">cdrskin-1.3.3 --help</A></DD>
+<DD><A HREF="cdrskin_help_devel">cdrskin-1.3.3 -help</A></DD>
+<DD><A HREF="man_1_cdrskin_devel.html">man cdrskin (as of 1.3.3)</A></DD>
+<DD>&nbsp;</DD>
+<DT>Maintainers of cdrskin unstable packages please use SVN of
+<A HREF="http://libburnia-project.org"> libburnia-project.org</A></DT>
+<DD>Download: <KBD><B>svn co http://svn.libburnia-project.org/libburn/trunk libburn</B>
+</KBD></DD>
+<DD>Build: <KBD><B>cd libburn ; ./bootstrap ; ./configure --prefix /usr ; make ; cdrskin/compile_cdrskin.sh</B>
+</KBD></DD>
+<DD>Build of SVN versions needs <A HREF="http://sources.redhat.com/autobook/">
+autotools</A> of at least version 1.7 installed.
+But after the run of <KBD>./bootstrap</KBD>, only
+vanilla tools like make and gcc are needed.</DD>
+</DD>
+<DD>&nbsp;</DD>
+<DT>The following download is intended for adventurous end users or
+admins with full system souvereignty.</DT>
+<DD>Source (./bootstrap is already applied, build tested, for more see
+<A HREF="README_cdrskin_devel">upcoming README</A> ):
+</DD>
+<DD>
+<A HREF="cdrskin-1.3.3.tar.gz">cdrskin-1.3.3.tar.gz</A>
+(950 KB).
+</DD>
+
+<!-- This is not offered any more since spring 2008
+
+<DT>The following downloads are intended for adventurous end users or
+admins with full system souvereignty.</DT>
+<DD>Binary (untar and move to /usr/bin/cdrskin):</DD>
+<DD><A HREF="cdrskin_0.4.3-x86-suse9_0.tar.gz">
+cdrskin_0.4.3-x86-suse9_0.tar.gz</A>, (110 KB).
+</DD>
+<DD><A HREF="cdrskin_0.4.3-x86-suse9_0-static.tar.gz">
+cdrskin_0.4.3-x86-suse9_0-static.tar.gz</A>, (310 KB)
+</DD>
+-->
+
+</DL>
+</P>
+
+<HR>
+
+<P>
+Many thanks to Joerg Schilling for cdrecord, 
+<BR>
+and to Derek Foreman and Ben Jansens for creating libburn.
+<BR>
+Historic versions based on Derek's and Ben's 
+<A HREF="http://icculus.org/burn">icculus.org/burn</A> :<BR>
+<A HREF="cdrskin-0.1.2.0.2.ts.tar.gz">cdrskin-0.1.2.0.2.ts.tar.gz</A><BR>
+<A HREF="cdrskin-0.1.3.0.2.ts.tar.gz">cdrskin-0.1.3.0.2.ts.tar.gz</A>
+<BR>
+Very special thanks to Andy Polyakov whose 
+<A HREF="http://fy.chalmers.se/~appro/linux/DVD+RW/tools">dvd+rw-tools</A>
+provide libburn with invaluable examples on how to deal with DVD and BD media.
+</P>
+
+<HR>
+
+<A NAME="examples">
+<P>
+<DL>
+<DT>Example for a setup of device permissions.</DT>
+<DT>
+Newer Linux distros enable rw-access for the desktop user automatically.
+So try as normal user whether all your drives are found.
+CD devices which offer no rw-permission will stay invisible.
+</DT>
+<DD>$ <KBD><B>cdrskin --devices</B></KBD></DD>
+<DT>If not all desired drives show up, become superuser and do again:</DT>
+</DT>
+<DD># <KBD><B>cdrskin --devices</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>0&nbsp; dev='/dev/sr0'&nbsp; rwr-r- :&nbsp; 'TEAC'  'CD-ROM CD-532S'</KBD></DD>
+<DD><KBD>1&nbsp; dev='/dev/hdc'&nbsp; rwrw-- :&nbsp; 'LITE-ON'  'LTR-48125S'</KBD></DD>
+<DT>Most simple and most insecure is this equivalent
+of the usual cdrecord permissions u+s,a+x:</DT>
+<DD># <KBD><B>chmod a+rw /dev/sr0 /dev/hdc</B></KBD></DD>
+<DT>
+More secure is to put the permitted users into a group like
+"floppy", to assign /dev/sr0 /dev/hdc to this group,
+and to allow rw-access only to group members.
+</DT>
+<DD># <KBD><B>vi /etc/group</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>floppy:x:19:thomas,scdbackup</KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD># <KBD><B>chgrp floppy /dev/sr0 /dev/hdc</B></KBD></DD>
+<DD># <KBD><B>chmod g+rw /dev/sr0 /dev/hdc</B></KBD></DD>
+</DL>
+</P>
+
+<HR>
+
+<A NAME="k3b">
+<P>
+<A HREF="k3b_on_cdrskin.html">
+Example how to setup K3b to use cdrskin for burning data CD projects.
+<A><BR>
+(<A HREF="http://www.k3b.org">K3b</A> 
+is a GUI frontend which uses cdrecord for CD burning.)
+</P>
+
+<!--
+
+<HR>
+
+<A NAME="scdbackup">
+<P>
+<DL>
+<DT>Example for a test session with a cdrecord based scdbackup installation:</DT>
+<DD>$ <KBD><B>cdrskin -scanbus</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;&nbsp; 2,0,0 &nbsp;&nbsp; 0)&nbsp; 'TEAC' 'CD-ROM CD-532S' '?' Removable CD-ROM</KBD></DD>
+<DD>$ <KBD><B>cdrskin -scanbus dev=ATA</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;&nbsp; 1,0,0 &nbsp;&nbsp; 1)&nbsp; 'LITE-ON' 'LTR-48125S' '?' Removable CD-ROM</KBD></DD>
+<DD>$ <KBD><B>export SCDBACKUP_SCSI_ADR="ATA:1,0,0"</B></KBD></DD>
+<DD>$ <KBD><B>export SCDBACKUP_CDRECORD="cdrskin -v -v"</B></KBD></DD>
+<DD>$ <KBD><B>scdbackup_home</B></KBD></DD>
+</DL>
+<DL>
+<DT>Example for a permanent configuration of cdrskin based scdbackup</DT>
+<DD>$ <KBD><B>cd scdbackup-0.8.6/inst</B></KBD></DD>
+<DD>$ <KBD><B>export SCDBACKUP_USE_CDRSKIN=1</B></KBD></DD>
+<DD>$ <KBD><B>./CONFIGURE_CD</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>cdrskin 0.3.8 : limited cdrecord compatibility wrapper for libburn</KBD></DD>
+</DL>
+If your system is stricken with some ill CD device then this can stall
+and you will have to press <KBD>Ctrl+C</KBD> to abort.
+In this case, you may execute
+<KBD>export SCDBACKUP_NO_SCANBUS=1</KBD>
+and try again.
+<DL>
+<DT></DT>
+<DD><KBD> ------------------- SCSI devices. To be used like &nbsp;&nbsp; 0,0,0</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;&nbsp; 2,0,0 &nbsp;&nbsp; 0)&nbsp; 'TEAC' 'CD-ROM CD-532S' '?' Removable CD-ROM</KBD></DD>
+<DD><KBD> ------------------- end of SCSI device list</KBD></DD>
+<DD><KBD> ------------------- ATA devices. To be used like       ATA:0,0,0
+<DD><KBD>&nbsp;&nbsp;&nbsp; 1,0,0 &nbsp;&nbsp; 1)&nbsp; 'LITE-ON' 'LTR-48125S' '?' Removable CD-ROM</KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>&nbsp;&nbsp;&nbsp; * Your cdrecord offers -driveropts=burnfree with your recorder.</KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>scdbackup for CD 0.8.6 : First stage of installation done.</KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD><KBD>Now give it a try. Run :  scdbackup_home</KBD></DD>
+<DD>$ <KBD><B>unset SCDBACKUP_USE_CDRSKIN</B></KBD></DD>
+</DL>
+<DL>
+<DT>To get back to using cdrecord :</DT>
+<DD>$ <KBD><B>cd scdbackup-0.8.6/inst</B></KBD></DD>
+<DD>$ <KBD><B>export SCDBACKUP_USE_CDRSKIN=0</B></KBD></DD>
+<DD>$ <KBD><B>./CONFIGURE_CD</B></KBD></DD>
+<DD><KBD>...</KBD></DD>
+<DD>$ <KBD><B>unset SCDBACKUP_USE_CDRSKIN</B></KBD></DD>
+</DL>
+</P>
+
+-->
+
+<HR>
+
+<A NAME="cdrecord">
+<P>
+<CENTER><H3>About the relationship of cdrecord and cdrskin</H3></CENTER>
+First of all: this relationship is single sided, as cdrskin has to be aware of
+cdrecord but not vice versa.
+<BR>
+<BR>
+I was a long time user of cdrecord and it worked fine for me. 
+Especially i do appreciate its write mode -tao which allows to pipe arbitrary
+data on CD and CD-RW via stdin. cdrecord is reliable, versatile and well
+maintained. So for me - there would be no problem with using it for
+burning CDs.
+<BR>
+But the author of cdrecord and the Linux kernel people foster a very hostile 
+relationship. Ok, that's their business, not mine (or ours if you are with me).
+One has to be aware, though, that this relationship might lead to a situation
+where cdrecord is no longer available for certain Linux kernels.
+<BR>
+To have my own project prepared for such a time, i began to implement its
+cdrecord gestures on top of libburn. 
+From now on i invite other interested users of cdrecord to teach cdrskin
+the gestures necessary for their cdrecord applications.
+Contact me. Let's see what we can achieve.
+<BR>
+<BR>
+libburn and cdrskin are now mature enough to substitute cdrecord in its
+major use cases of CD and DVD burning. It is possible to foist cdrskin on
+various software packages if it gets falsely named "cdrecord".
+I do not encourage this approach, but of course such a replacement
+opportunity is the goal of a cdrecord compatibility wrapper.
+<BR>
+<BR>
+It is very important to me that this project is not perceived as hostile
+towards Joerg Schilling and his ongoing work.
+I owe him much. For cdrecord, for mkisofs, for star. Chapeau.
+<BR>
+</P>
+<HR>
+
+<CENTER><FONT SIZE=+0>
+<!-- <A NAME="bottom" HREF="main_ger.html#bottom">deutsch (german)</A>
+<BR><BR>
+ -->
+<A HREF="http://en.wikipedia.org/wiki/D%C3%B6ner_kebab">
+<IMG SRC="doener_150x200_tr.png" BORDER=0
+     ALT="cdrskin logo: Doener mit Scharf"></A>
+<BR><BR>
+<FONT SIZE=+0>Enjoying free Open Source hosting by <A HREF="http://www.webframe.org">www.webframe.org</A><BR>
+<A HREF="http://www.webframe.org">
+<IMG SRC="msfree.gif" ALT="100 % Microsoft free" BORDER=0></A><BR>
+and by <A HREF="http://sourceforge.net">sourceforge.net</A><BR>
+<A href="http://sourceforge.net">
+<IMG src="sflogo-88-1.png" BORDER="0" ALT="SourceForge Logo"></A>
+<!-- on sourceforge use : <IMG src="http://sourceforge.net/sflogo.php?group_id=16010" width="88" height="31" border="0" alt="SourceForge Logo"></A> -->
+
+<!-- 
+<P>
+Enjoying a FreeBSD shell account with the opportunity to
+build and install cdrskin at<BR>
+<A HREF="http://www.en.free-shells.com.ar">free-shells.com.ar</A>
+</P>
+-->
+
+</FONT></CENTER>
+<HR>
+<DL>
+<DT>Links to my other published software projects :
+<DD><A HREF="http://scdbackup.webframe.org/xorriso_eng.html">
+xorriso, a standalone ISO 9660 multi-session CD/DVD/BD burn tool.
+No mkisofs needed.
+<DL>
+<DD>
+<A HREF="http://scdbackup.sourceforge.net/xorriso_eng.html">
+(a second source of above)</A>
+</DD>
+</DL>
+</DD>
+<DD><A HREF=http://scdbackup.webframe.org/main_eng.html>
+scdbackup, multi volume CD backup</A>
+<DL><DD><A HREF=http://scdbackup.sourceforge.net/main_eng.html> 
+(a second source of above)</A></DD></DL></DD>
+<DD><A HREF=http://stic.sourceforge.net>Some Tools for Image Collectors</A>
+</DD>
+<DD><A HREF=http://scdbackup.webframe.org/pppoem>
+pppoem, a DSL throughput monitor (mainly for Linux kernel 2.4)</A>
+</DD>
+</DL>
+<BR><BR>
+Legal statement: This website does not serve any commercial purpose.<BR>
+</FONT>
+</BODY>
+</HTML>

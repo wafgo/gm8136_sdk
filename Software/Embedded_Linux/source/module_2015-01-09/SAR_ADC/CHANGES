@@ -1,0 +1,7 @@
+sar_adc -- GM SAR ADC
+Copyright (C) 2010 GM Corp. (http://www.grain-media.com)
+$Id: CHANGES,v 1.1.1.1 2013/07/25 05:45:54 gavinpe Exp $
+===============================================================================
+Version 1.0 (beta)
+	* first version of SAR ADC driver of linux kernel 3.3
+

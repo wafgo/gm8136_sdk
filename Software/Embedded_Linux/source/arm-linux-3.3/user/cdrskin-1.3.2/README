@@ -1,0 +1,765 @@
+------------------------------------------------------------------------------
+                              libburnia-project.org
+------------------------------------------------------------------------------
+This all is under GPL.
+(See GPL reference, our clarification and commitment at the end of this text)
+------------------------------------------------------------------------------
+libburnia-project.org
+By Mario Danic <mario.danic@gmail.com> and Thomas Schmitt <scdbackup@gmx.net>
+Copyright (C) 2006-2013 Mario Danic, Thomas Schmitt
+Still containing parts of Libburn. By Derek Foreman <derek@signalmarketing.com>
+and Ben Jansens <xor@orodu.net>
+Copyright (C) 2002-2006  Derek Foreman and Ben Jansens
+
+     http://files.libburnia-project.org/releases/libburn-1.3.2.tar.gz
+
+------------------------------------------------------------------------------
+
+                           Build and Installation
+
+                                From tarball
+
+Obtain libburn-1.3.2.tar.gz, take it to a directory of your choice and do:
+
+   tar xzf libburn-1.3.2.tar.gz
+   cd libburn-1.3.2
+   ./configure --prefix=/usr
+   make
+
+To make libburn accessible for running resp. application development,
+and to install the cdrecord compatibility binary cdrskin, do
+(as Superuser):
+
+   make install
+
+This procedure installs libburn.so.4 and cdrskin depending on it.
+For a standalone cdrskin binary, see cdrskin/README.
+
+A behavioral conflict is known between any burn software and demons like hald
+which probe CD drives. This can spoil burn runs for CD-R or CD-RW.
+You may have to keep your hald away from the drive. See for example
+   http://www.freebsd.org/gnome/docs/halfaq.html
+
+
+                                  From SVN
+
+Our build system is based on autotools. For preparing the build of a SVN 
+snapshot you will need autotools of at least version 1.7. 
+Do in a directory of your choice:
+
+   svn co http://svn.libburnia-project.org/libburn/trunk libburn-svn
+   cd libburn-svn
+   ./bootstrap
+   ./configure --prefix=/usr
+   make
+   make install
+
+Warning: The trunk might contain experimental features which might not
+         persist until next release. 
+
+
+                        Special ./configure options
+
+make install on GNU/Linux will try to run program ldconfig with the library
+installation directory as only argument. Failure to do so will not abort
+installation. One may disable ldconfig by ./configure option:
+   --disable-ldconfig-at-install
+
+In some situations Linux may deliver a better write performance to drives if
+the track input is read with O_DIRECT (see man 2 open). The API call
+burn_os_open_track_src() and the input readers of cdrskin and libburn fifo
+can be told to use this peculiar read mode by:
+   --enable-track-src-odirect
+
+But often libburn call burn_write_opts_set_dvd_obs(opts, 64*1024) will yield
+even better performance in such a situation. 64k can be made default at
+configure time by:
+    --enable-dvd-obs-64k
+This may be combined with above --enable-track-src-odirect .
+
+If it is desired that DVD DAO writing and stdio: writing get padded up to
+a full write chunk of 32k resp. 64k, then use ./configure option:
+    --enable-dvd-obs-pad
+
+Alternatively the transport of SCSI commands can be done via libcdio-0.83.
+You may install it and re-run libburn's ./configure with option
+    --enable-libcdio
+
+By use of a version script, the libburn.so library exposes no other function
+names but those of the API definition in libburn/libburn.h.
+If -Wl,--version-script=... makes problems with the local compiler, then
+disable this encapsulation feature by
+    --disable-versioned-libs
+
+Make sure to re-compile all source files after running ./configure
+   make clean ; make
+   make install
+
+
+Linux only:
+
+libburn tries to avoid a collision with udev's drive examination by waiting
+0.1 seconds before opening the device file for a longer time, after udev
+might have been alarmed by drive scanning activities.
+The waiting time can be set at ./configure time with microsecond granularity.
+E.g. 2 seconds:
+  CFLAGS="$CFLAGS -DLibburn_udev_wait_useC=2000000"
+  ./configure ...options...
+Waiting can be disabled by zero waiting time:
+  CFLAGS="$CFLAGS -DLibburn_udev_wait_useC=0"
+Alternatively, libburn can try to be nice by opening the device file,
+closing it immediately, waiting, and only then opening it for real:
+  CFLAGS="$CFLAGS -DLibburn_udev_extra_open_cyclE -DLibburn_udev_wait_useC=500000"
+
+------------------------------------------------------------------------------
+
+An important part of the project, libisofs, is hosted in a bzr repository at
+launchpad.net :
+   bzr branch lp:libisofs
+
+Another part the project, libisoburn, is hosted in the libburnia SVN, too:
+   svn co http://svn.libburnia-project.org/libisoburn/trunk libisoburn
+
+See README files there.
+
+------------------------------------------------------------------------------
+
+
+                        Overview of libburnia-project.org
+
+libburnia-project.org is an open-source software project for reading, mastering
+and writing optical discs.
+For now this means CD media, all DVD media, all BD media.
+
+The project comprises of several more or less interdependent parts which
+together strive to be a usable foundation for application development.
+These are libraries, language bindings, and middleware binaries which emulate
+classical (and valuable) Linux tools.
+Currently it is supported on GNU/Linux with kernels >= 2.4,
+on FreeBSD with ATAPI/CAM enabled in the kernel (see man atapicam),
+and on OpenSolaris (tested with kernel 5.11).
+On other X/Open compliant systems there will only be pseudo drives, but no
+direct MMC operation on real CD/DVD/BD drives.
+
+For full ports to other systems we would need : login on a development machine
+resp. a live OS on CD or DVD, advise from a system person about the equivalent
+of Linux sg or FreeBSD CAM, volunteers for testing of realistic use cases.
+
+We have a well tested code base for burning data and audio CDs, DVDs and BDs.
+The burn API is quite comprehensively documented and can be used to build a
+presentable application.
+We have a functional application which emulates the core use cases of cdrecord
+in order to prove that usability, and in order to allow you to explore
+libburn's scope by help of existing cdrecord frontends.
+
+ISO 9660 filesystems with Rock Ridge and Joliet extensions can be created
+and manipulated quite freely. This capability together with our burn capability
+makes possible a single binary application which covers all steps of image
+composition, updating and writing. Quite unique in the Linux world.
+
+The project components (list subject to growth, hopefully):
+
+- libburn  is the library by which preformatted data get onto optical media.
+           It uses either /dev/sgN (e.g. on kernel 2.4 with ide-scsi) or
+           /dev/srM or /dev/hdX (e.g. on kernel 2.6).
+           libburn is the foundation of our cdrecord emulation. Its code is
+           independent of cdrecord. Its DVD capabilities are learned from
+           studying the code of dvd+rw-tools and MMC-5 specs. No code but only
+           the pure SCSI knowledge has been taken from dvd+rw-tools, though.
+
+- libisofs is the library to pack up hard disk files and directories into a
+           ISO 9660 disk image. This may then be brought to CD via libburn.
+           An own ISO 9660 extension stores ACLs, xattr, and MD5 of file
+           content.
+
+- libisoburn is an add-on to libburn and libisofs which coordinates both and
+           also allows to grow ISO-9660 filesystem images on multi-session
+           media as well as on overwriteable media via the same API.
+           All media peculiarities are handled automatically.
+           It also contains the methods of command oriented application
+           xorriso and offers them via a C language API.
+
+- cdrskin  is a limited cdrecord compatibility wrapper for libburn.
+           cdrecord is a powerful GPL'ed burn program included in Joerg
+           Schilling's cdrtools. cdrskin strives to be a second source for
+           the services traditionally provided by cdrecord. Additionally it
+           provides libburn's DVD capabilities, where only -sao is compatible
+           with cdrecord.
+           cdrskin does not contain any bytes copied from cdrecord's sources.
+           Many bytes have been copied from the message output of cdrecord
+           runs, though.
+           See cdrskin/README for more.
+
+- xorriso  is an application of all three libraries which creates, loads,
+           manipulates and writes ISO 9660 filesystem images with
+           Rock Ridge extensions. Manipulation is not only adding or
+           overwriting of files but also deleting, renaming, attribute
+           changing, incremental backups, activating boot images, and
+           extracting of files from ISO images to disk. There is also a
+           sparse emulation of cdrecord and a more laborate one of mkisofs.
+           All features of xorriso are also available via a C language API
+           of libisoburn.
+           A static compilation of xorriso and the libraries is dedicated
+           to the GNU Operating System. See xorriso/README_gnu_xorriso .
+
+- "test"   is a collection of application gestures and examples given by the
+           authors of the library features. The burn API example of libburn
+           is named test/libburner.c . The API for media information inquiry is
+           demonstrated in test/telltoc.c .
+           Explore these examples if you look for inspiration.
+
+We strive to be a responsive upstream.
+
+Our libraries are committed to maintain older feature sets in newer versions.
+This applies to source code headers (API) as well as to linkable objects (ABI).
+The only exception from this rule is about non-release versions x.y.*[13579]
+which are allowed to introduce new features, change those new features in
+any way and even may revoke such new features before the next release of
+x.y.*[02468]. As soon as it is released, a feature is promised to persist.
+
+SONAMES:
+libburn.so.4    (since 0.3.4, March    2007),
+libisofs.so.6   (since 0.6.2, February 2008),
+libisoburn.so.1 (since 0.1.0, February 2008).
+
+Applications must use 64 bit off_t. E.g. by defining
+#define _LARGEFILE_SOURCE
+#define _FILE_OFFSET_BITS 64
+or take special precautions to interface with the libraries by 64 bit integers
+where the .h files prescribe off_t. To reduce libburn's off_t size to 32 bit
+will keep it from processing tracks of more than 2 GB size.
+
+
+------------------------------------------------------------------------------
+Project history as far as known to me:
+
+- Founded in 2002 as it seems. See mailing list archives
+     http://lists.freedesktop.org/archives/libburn/
+  The site of this founder team is reachable and offers download of a
+  (somewhat outdated) tarball and from CVS :
+     http://icculus.org/burn/
+  Copyright holders and most probably founders:
+  Derek Foreman and Ben Jansens.
+
+- I came to using libburn in 2005. Founded the cdrskin project and submitted
+  necessary patches which were accepted or implemented better. Except one
+  remaining patch which prevented cdrskin from using vanilla libburn from CVS.
+  The cdrskin project site is reachable and offers download of the heavily
+  patched (elsewise outdated) tarball under the name  cdrskin-0.1.2  :
+     http://scdbackup.sourceforge.net/cdrskin_eng.html
+  It has meanwhile moved to use vanilla libburn.pykix.org , though.
+  Version 0.1.4 constitutes the first release of this kind.
+
+- In July 2006 our team mate Mario Danic announced a revival of libburn
+  which by about nearly everybody else was perceived as unfriendly fork.
+  Derek Foreman four days later posted a message which expressed his
+  discontent.
+  The situation first caused me to publically regret it and then - after i
+  got the opportunity to move in with cdrskin - gave me true reason to
+  personally apologize to Derek Foreman, Ben Jansens and the contributors at 
+  icculus.org/burn. Posted to both projects:
+    http://lists.freedesktop.org/archives/libburn/2006-August/000446.html
+    http://mailman-mail1.webfaction.com/pipermail/libburn-hackers/2006-August/000024.html
+
+- Mid August 2006 project cdrskin established a branch office in 
+  libburn.pykix.org so that all maintainers of our tools have one single place
+  to get the current (at least slightely) usable coordinated versions of
+  everything.
+  Project cdrskin will live forth independendly for a while but it is committed
+  to stay in sync with libburn.pykix.org (or some successor, if ever).
+  cdrskin is also committed to support  icculus.org/burn  if the pending fork
+  is made reality by content changes in that project. It will cease to maintain
+  a patched version of  icculus.org/burn  though. Precondition for a new
+  release of cdrskin on base of  icculus.org/burn  would be the pending
+  "whitelist patch" therefore.
+  I would rather prefer if both projects find consense and merge, or at least
+  cooperate. I have not given up hope totally, yet.
+  I, personally, will honor any approach.
+
+- 2nd September 2006 the decision is made to strive for a consolidation of
+  copyright and a commitment to GPL in a reasonable and open minded way.
+  This is to avoid long term problems with code of unknown origin and
+  with finding consense among the not so clearly defined group of copyright
+  claimers and -holders.
+  libisofs is already claimed sole copyright Mario Danic.
+  cdrskin and libburner are already claimed sole copyright Thomas Schmitt.
+  Rewrites of other components will follow and concluded by claiming full
+  copyright within the group of libburn.pykix.org-copyright holders.
+
+- 16th September 2006 feature freeze for release of libburn-0.2.2 .
+
+- 20th September 2006 release of libburn-0.2.2 .
+
+- 26th October 2006 feature freeze for cdrskin-0.2.4 based on libburn-0.2.3 .
+  This version of cdrskin is much more cdrecord compatible in repect
+  to drive addressing and audio features.
+
+- 30th October 2006 release of cdrskin-0.2.4 .
+
+- 13th November 2006 splitting releases of libburn+cdrskin from libisofs.
+
+- 24th November 2006 release of libburn-0.2.6 and cdrskin-0.2.6 . cdrskin has
+  become suitable for unaware frontends as long as they perform only the core 
+  of cdrecord use cases (including open-ended input streams, audio, and
+  multi-session).
+
+- 28th November 2006 the umbrella project which encloses both, libisofs and
+  libburn, is now called libburnia. For the origin of this name, see 
+  http://en.wikipedia.org/wiki/Liburnians .
+
+- 16th January 2007 release of libburn-0.3.0 and cdrskin-0.3.0 . Now the scope
+  is widened to a first class of DVD media: overwriteable single layer types
+  DVD-RAM, DVD+RW, DVD-RW. This is not a cdrecord emulation but rather inspired
+  by dvd+rw-tools' "poor man" writing facility for this class of media.
+  Taking a bow towards Andy Polyakov.
+
+- 11th February 2007 version 0.3.2 covers sequential DVD-RW and DVD-R with
+  multi-session and with DAO.
+
+- 12th March 2007 version 0.3.4 supports DVD+R and thus covers all single layer
+  DVD media. Code for double layer DVD+/-R is implemented but awaits a tester
+  yet.
+
+- 23th April 2007 version 0.3.6 follows the unanimous opinion of Linux kernel
+  people that one should not use /dev/sg on kernel 2.6.
+
+- 31st July 2007 version 0.3.8 marks the first anniversary of libburn revival.
+  We look back on improved stability, a substantially extended list of media
+  and write modes, and better protection against typical user mishaps.
+
+- 24th October 2007 version 0.4.0 is the foundation of new library libisoburn
+  and an upcomming integrated application for manipulating and writing
+  ISO 9660 + Rock Ridge images. cdrskin-0.4.0 got capabilities like growisofs
+  by these enhancements: growing of overwriteable media and disk files.
+  Taking again a bow towards Andy Polyakov.
+
+- 26th Januar 2008 version 0.4.2 rectifies the version numbering so that we
+  reliably release libburn.so.4 as should have been done since libburn-0.3.2.
+  cdrskin now is by default linked dynamically and does a runtime check
+  to ensure not to be started with a libburn which is older than itself.
+
+- 3rd Feb 2008 libisofs-0.2.x (.so.5) has been deprecated.
+
+- 14th Feb 2008 libisofs-0.6.2 permanently replaces the old libisofs-0.2.x. 
+  It is the first release of new libisofs.so.6 which will guarantee future
+  API/ABI compatibility for its whole feature set.
+
+- 15th Feb 2008 libisoburn-0.1.0 (.so.1) coordinates libisofs and libburn for
+  the purpose of ISO image reading and writing. It emulates multi-session on
+  overwriteable media. Application xorriso makes use of all three libraries.
+
+- 8th Apr 2008 libburn-0.4.4 has proven to be capable of burning to DVD+R/DL
+  and read performance on disk file pseudo-drives has been improved.
+
+- 27th Apr 2008 libisofs-0.6.4 can now read data file content from images
+  and can map pieces of disk files onto image files. Image directory iteration
+  has been enhanced. Input data streams and extended information have been
+  exposed in the API to allow future development.
+
+- 29th Apr 2008 libisoburn-0.1.4 was made more efficient with reading of
+  image tree nodes. It now depends on libisofs-0.6.4 and libburn-0.4.4.
+  xorriso makes use of new libisofs features by performing incremental
+  updates of directory trees and by cutting oversized data files into
+  pieces. A primitive single session emulation of cdrecord and mkisofs is
+  provided.
+
+- 10th May 2008 libburn-0.4.6 supports formatting and writing of BD-RE,
+  full nominal speed for DVD-RAM and BD-RE. cdrskin has a unified blank
+  type with automatic media state recognition.
+
+- 17th May 2008 an old bug with DVD-RAM and now with BD-RE is fixed by
+  libburn-0.4.8 to allow libisoburn emulation of multisession on those media.
+
+- 19th May 2008 libisoburn-0.1.6 brings better table-of-content emulation
+  on overwriteble media and disk files.
+
+- 1st Jun 2008 libisofs-0.6.6 fixes some problems around device files.
+
+- 3rd Jun 2008 libisoburn-0.1.8 fixes a bug with overwriteable media.
+
+- 23rd Jun 2008 libisoburn-0.2.0 introduces extraction of files from
+  ISO images.
+
+- 16th Jul 2008 libburn-0.5.0 handles systems with no /dev/sr* but only
+  /dev/scd*.
+
+- 19th Jul 2008 libisoburn/xorriso-0.2.2 can do multi-session in mkisofs
+  and cdrecord style. xorriso now can serve underneath growisofs.
+
+- 20th Aug 2008 libburn-0.5.2 revokes the necessity that a drive must be
+  enumerable in order to be adressable. Enumeration is enhanced by examining
+  /proc/sys/dev/cdrom/info.
+  
+- 24th Aug 2008 libisoburn/xorriso-0.2.4 introduces a media readability check
+  with data retrieval option.
+
+- 18th Sep 2008 libisofs-0.6.8 supports ISO 9660 Level 3 which allows very
+  large data files in the image.
+
+- 20th Sep 2008 libisoburn/xorriso-0.2.6 takes into respect the new Level 3
+  capabilities of libisofs. 
+
+- 6th Oct 2008 libburn-0.5.4 adjusts the changes of 0.5.2 to the needs of
+  Linux kernel 2.4 and introduces human readable SCSI error messages.
+
+- 6th Oct 2008 libisofs-0.6.10 fixes two bugs which prevented adding and
+  manipulation of ISOLINUX boot images.
+
+- 15th Oct 2008 libisoburn/xorriso-0.2.8 can activate and maintain an
+  ISOLINUX boot image by an EL Torito boot record.
+
+- 12th Nov 2008 libburn-0.5.6 fixes usage of freed memory by the fifo thread
+  of an aborted burn run.
+
+- 26th Nov 2008 libisofs-0.6.12 can produce a ISOLINUX isohybrid MBR on the fly
+  and allows to produce ISO images which resemble old mkisofs images.
+
+- 2nd Dec 2008 libisoburn-0.3.0. xorriso now is ready for exotic character
+  sets, for legacy FreeBSD systems which expect an outdated Rock Ridge
+  signature, and for producing ISO images with MBR which boot from hard disk
+  or USB stick. Three minor bugs were fixed.
+
+- 7th Dec 2008 libburn-0.5.8 prevents a SIGSEGV with wierd CD table-of-content
+  and improves BD-RE formatting.
+
+- 9th Dec 2008 Our project received a donation from Thomas Weber.
+
+- 2nd Jan 2009 libburn-0.6.0 allows to format BD-R and to write to either
+  formatted or unformatted BD-R.
+
+- 6th Jan 2009 libisoburn-0.3.2. xorriso can produce and execute commands for
+  mounting older sessions from all kinds of media. Pseudo-drives outside the
+  /dev/ tree can be addressed without prefix "stdio:". 
+
+- 20th Feb 2009 libburn-0.6.2 source release now compiles out of the box
+  on FreeBSD.
+
+- 28 Feb 2009 libisofs-0.6.14 can record ACLs and Extended Attributes xattr
+  in its ISO images. 
+
+- 01 Mar 2009 libisoburn-0.3.4. xorriso makes use of the ACL and xattr
+  capabilities provided by libisofs for xorriso backup features.
+
+- 11 Mar 2009 libisofs-0.6.16 of libisofs fixes two bugs which on Solaris
+  prevented to navigate the ISO images by ".." and to recognize the Rock Ridge
+  extensions of ISO images. The ban to build libisofs on operating systems
+  other than Linux and FreeBSD has been lifted.
+
+- 13 Mar 2009 libburn-0.6.4 got a dummy adapter for SCSI/MMC command transport.
+  It will show no drives and thus libburn will only be able to perform
+  operations on "stdio:" pseudo drives. Nevertheless this allowed to lift the
+  ban to build libburn on operating systems other than Linux and FreeBSD.
+
+- 16 Mar 2009 libisoburn-0.3.6: xorriso uses RRIP version 1.10 as default 
+  in order to be mountable where mkisofs images are mountable.
+
+- 17 Apr 2009 libisofs-0.6.18 introduces content filtering of data files.
+  Built-in filters allow compression to formats gzip and zisofs. External
+  filter processes allow arbitrary data conversions like encryption.
+
+- 19 Apr 2009 libisoburn-0.3.8 makes use of the new libisofs capability to
+  perform content filtering of data files.
+
+- 08 May 2009 libburn-0.6.6 fixes a bug with aborting on broken output pipe
+  and a bug with device scan on FreeBSD.
+
+- 31 May 2009 libisofs-0.6.20 can record hard link relations in ISO images
+  and offers support with restoring them to disk. Current Linux kernels will
+  mount images with such hard links but will attribute a unique inode number
+  to each file.
+
+- 28 Jun 2009 libisoburn-0.4.0: xorriso can record and restore hard link
+  relations of files. Performance of data reading has been improved. Option
+  -find now supports logical operators with its tests.
+
+- 14 Jul 2009 libburn-0.6.8 fixes bugs and shortcommings with old MMC-1 drives
+  and with large SCSI bus numbers as handed out by Linux for USB drives.
+
+- 20 Jul 2009 libisoburn-0.4.0.pl01 fixes a regression in xorriso which caused
+  data loss in older sessions if xorriso was used underneath growisofs.
+  Affected are releases since libisoburn-0.3.2 in january 2009.
+
+- 25 Aug 2009 libisofs-0.6.22 can record MD5 checksums for the whole session
+  and for each single data file. Checksum tags allow to verify superblock and
+  directory tree before importing them.
+
+- 27 Aug 2009 libburn-0.7.0 allows to calm down a drive and to inquire its
+  supported profiles. It works around some pitfalls with U3 enhanced memory
+  sticks which emulate a CD-ROM.
+
+- 27 Aug 2009 libisoburn-0.4.0.pl00 can record MD5 checksums by which one may
+  verify the session or single data files in the image. When comparing image
+  files with files in the local filesystem, the MD5 sums avoid the need for
+  reading file content from the image.
+
+- 22 Sep 2009 libisoburn-0.4.0.pl01 fixes a bug in xorriso option -cut_out.
+
+- 08 Oct 2009 libisofs-0.6.24 fixes a bug which could cause the loss of blanks
+  in file names when a new session got added to an ISO image. With names
+  shorter than 251 characters this happened only to trailing blanks.
+
+- 08 Oct 2009 libisoburn-0.4.0.pl02 fixes bugs with xorriso option -for_backup,
+  with xorrisofs -help, and with xorrecord -help.
+
+- 12 Oct 2009 libburn-0.7.2 fixes a bug with CD TAO multi-track dummy sessions.
+  It can retrieve media product info and can process track input which was
+  prepared for CD-ROM XA Mode 2 Form 1. cdrskin now performs option -minfo.
+
+- 28 Oct 2009 libisoburn-0.4.4 fixes a bug with cdrecord emulation and
+  introduces new information options about media type and ISO image id strings.
+  On Linux it helps with mounting two sessions of the same media
+  simultaneously.
+
+- 12 Nov 2009 libburn-0.7.2.pl01 works around problems with Pioneer DVR-216D.
+  DVD-R runs made the drive stuck. Ejecting the tray did not work properly.
+
+- 06 Dec 2009 libburn-0.7.4 works around problems with newer DVD burners,
+  provides throughput enhancements with hampered busses on Linux, and new
+  API calls to log SCSI commands and to control the libburn fifo.
+
+- 09 Dec 2009 libisoburn-0.4.6 allows performance tuning of output to DVD
+  drives or disk files.
+
+- 26 Dec 2009 libburn-0.7.4.pl01 fixes the release tarball which was lacking
+  the files of the generic system adapter for X/Open.
+
+- 29 Dec 2009 Our project received a donation for purchasing a fine small
+  computer which shall serve as OS farm for development and support.
+
+- 20 Jan 2010 Version 0.6.26 of libisofs fixes minor bugs and shall enhance
+  portability.
+
+- 22 Jan 2010 libburn-0.7.6 has an improved system adapter for FreeBSD,
+  fixes bugs about the generic X/Open system adapter, and allows to use
+  libcdio >= 0.83 as SCSI transport facility.
+
+- 10 Feb 2010 libisofs-0.6.28 fixes a regression about bootable images which
+  was introduced by version 0.6.22 in August 2009.
+
+- 23 Feb 2010 libisoburn-0.5.0 marks the transition of the xorriso standalone
+  version to an official GNU project. The name changed to "GNU xorriso" and its
+  license is now GPLv3+.
+  The licenses of libburnia libraries and applications are not affected by
+  this change. 
+
+- 10 Mar 2010 libburn-0.7.8 fixes bugs and improves the built-in abort handler
+  on FreeBSD.
+
+- 30 Mar 2010 Release 0.5.2 of libisoburn provides xorriso documentation in
+  GNU Texinfo format with embedded extra data to derive a full man page.
+
+- 09 Apr 2010 libburn-0.8.0 now works with ahci driver on FreeBSD 8-STABLE.
+
+- 03 May 2010 Version 0.6.32 of libisofs is able to create ISO images with
+  multiple boot images. All boot catalog parameters described in El-Torito
+  specs can be set and inquired. This allows to use GRUB boot images for EFI. 
+
+- 04 May 2010 Release 0.5.6.pl00 of libisoburn makes use of the new libisofs
+  capabilities about boot images.
+
+- 11 Jun 2010 libburn-0.8.2 now works on Solaris. 
+
+- 14 Jun 2010 By release 0.5.8.pl00 of libisoburn, xorriso becomes a public C
+  language API of libisoburn. The emulations of mkisofs and cdrecord have
+  been enhanced. 
+
+- Tue Jun 29 2010 Version 0.6.34 of libisofs provides new features about
+  hiding file names from directory trees.
+
+- Wed Jun 30 2010 libburn-0.8.4 removes some restrictions on operating
+  systems other than Linux and FreeBSD.
+
+- Fri Jul 02 2010 Release 0.6.0.pl00 of libisoburn adds more options to the
+  mkisofs emulation of xorriso. It also fixes minor bugs and shortcommings.
+
+- Wed Sep 15 2010 Version 0.6.36 of libisofs can produce ISO images which
+  bear a partiton 1 with non-zero start address. They can be mounted from
+  USB stick via the main device file (e.g. /dev/sdb) as well as via the
+  partition device file (e.g. /dev/sdb1).
+
+- Fri Sep 17 2010 libburn-0.8.6 lifts the test reservation on DVD-R DL media.
+
+- Sat Sep 18 2010 Release 0.6.2.pl00 of libisoburn introduces a partition
+  with non-zero offset for ISO 9660 images on USB sticks, improves mkisofs
+  emulation, and fixes a regression which existed since version 0.4.2.
+
+- Wed Oct 20 2010 libburn-0.8.8 can report the used amount of BD spare blocks.
+
+- Sat Oct 23 2010 Version 0.6.38 of libisofs can use libjte to produce jigdo
+  files along with the ISO image. Further filesystem images may be appended
+  as MBR partitions 1 to 4. The capability was added to produce boot blocks
+  for computers with MIPS CPU.
+
+- Tue Oct 26 2010 Release 0.6.4.pl00 of libisoburn and xorriso makes use of
+  the new libisofs capabilities.
+
+- Wed Dec 08 2010 libburn-0.9.0 fixes a regression with SCSI command logging.
+
+- Fri Dec 10 2010 Version 0.6.40 of libisofs makes the prediction of the
+  emerging image size less expensive and is able to make images bootable
+  for SUN SPARC systems.
+
+- Sun Dec 12 2010 Release 0.6.6.pl00 of libisoburn and xorriso can read ISO
+  images which were copied to a different start address than they were prepared
+  for.
+
+- Mon Jan 17 2011 we go for release 1.0.0. This does not indicate a
+  technological overhaul but shall emphasize the maturity of the software.
+  libisofs-1.0.0 fixes a bug about the length of ECMA-119 directory names and
+  is ready to allow untranslated ECMA-119 names (violating the specs).
+  libburn-1.0.0.pl00 allows umask to create stdio-drive files with
+  rw-permissions for all. cdrskin now refuses to burn if the foreseeable size
+  exceeds media capacity
+  libisoburn-1.0.0.pl00 allows to create an ISO 9660:1999 directory tree,
+  improved the emulation fidelity of command -as mkisofs, lowered the default
+  abort threshold for xorriso batch mode, and increased that threshold for
+  xorriso dialog mode.
+
+- Wed Feb 23 2011 release 1.0.2:
+  libisofs fixes several bugs and introduces the capability to copy files
+  inside the ISO filesystem.
+  libburn removed a compilation obstacle on Solaris 9 and improved recognition
+  of stdio pseudo-drives.
+  libisoburn and xorriso fix bugs and make use of the new libisofs capability.
+  xorriso improves its mkisofs emulation.
+
+- Thu Mar 10 2011 release 1.0.4:
+  Several bugs were fixed in the libraries and in the mkisofs emulation of
+  xorriso. This emulation xorrisofs has now an own man page and info document.
+
+- Sat Apr 09 2011 release 1.0.6:
+  libburn refined its representation of emulated drives. The size alignment
+  of DVD DAO is now 2 kB rather than 32 kB. libisofs produces Joliet names of
+  up to 103 characters. xorriso fixes two bugs and makes use of the library
+  improvements.
+
+- Thu Apr 14 2011 release libisoburn-1.0.8:
+  A bug in the mkisofs emulation of xorriso could cause options to be ignored.
+  The problem was freshly introduced with libisoburn-1.0.6. 
+
+- Fri May 13 2011 release libisofs-1.0.8:
+  Fixes a few rarely occurring bugs that have been found during the last month.
+
+- Sat Jun 18 2011 release 1.1.0:
+  The consumption of stack memory was reduced. Statical program analysis found
+  some rarely occuring memory leaks. Several small bugs were fixed.
+  The suffix .plXY was dropped from tarball names of libburn and libisoburn.
+
+- Mon Jun 20 2011 patch release libburn-1.1.0.pl01:
+  libburn-1.1.0 compiled only on Linux, FreeBSD, and Solaris, but not on
+  other X/Open compliant systems.
+
+- Fri Jul 08 2011 release libisofs-1.1.2 and libisoburn-1.1.2:
+  A severe regression was fixed in libisoburn and xorriso, which was introduced
+  with version 1.0.6. It caused ISO 9660 images to be unreadable if they were
+  written to a write-only random-access file. E.g. by: xorrisofs ... >image.iso
+  
+- Mon Aug 08 2011 release 1.1.4:
+  Several bugs were fixed in libburn. The most severe of them prevented xorriso
+  on some drives from burning mountable ISO 9660 images to CD media.
+  New means to list drives by their udev symbolic links help to deal with
+  the non-persistent drive addresses on modern GNU/Linux.
+
+- Tue Sep 27 2011 release 1.1.6:
+  libisoburn now comes with a test suite. See releng/README. Bugs were fixed
+  in several rarely used features. Processing of ACL and extattr was enabled
+  on FreeBSD. Workarounds try to cope with vanishing udev links on GNU/Linux.
+
+- Mon Nov 21 2011 release libburn-1.1.8 and libisoburn-1.1.8:
+  libburn avoids to close and open drive device files while operating on them.
+  xorriso emulation mode xorrecord now has an own manual. libburn and xorriso
+  were prepared to operate on qemu virtio-blk-pci devices.
+
+- Sat Jan 28 2012 release 1.2.0:
+  libburn has learned to read and write CD-TEXT with CD SAO audio sessions.
+  It can now read CDRWIN .cue files which define pure audio or pure data
+  sessions. libisofs and libisoburn improved timestamp handling. Several
+  minor bugs were fixed.
+
+- Mon Apr 02 2012 release 1.2.2:
+  The handling of intentional deviations from ECMA-119 specifications has
+  been improved in libisofs. libisoburn and xorriso now make use of these
+  improvements. Some rarely occuring bugs have been fixed.  
+
+- Fri Jul 20 2012 release 1.2.4:
+  libburn and libisofs got some rarely occuring bugs fixed. libisofs learned
+  to produce HFS+ metadata and Apple Partition Map. The capabilities of
+  isohybrid options --efi and --mac have been implemented (GPT and APM).
+
+- Tue Jan 08 2013 release 1.2.6:
+  Small improvements were made in libburn. Minor bugs were fixed in the
+  libraries. xorriso improved its capabilities to serve the needs of frontend
+  programs. A proof of concept for a GUI frontend has been implemented:
+  xorriso-tcltk
+
+- Mon Mar 18 2013 release 1.2.8:
+  Some rarely occuring bugs were fixed in libisofs and libburn. libburn's
+  handling of incomplete sessions has been improved. xorriso's mkisofs
+  emulation learned to set El Torito section id strings.
+
+- Fri May 17 2013 release 1.3.0:
+  Several bugs were fixed in the libraries and in xorriso. The recently
+  introduced new boot preparation capabilities have been tested. New
+  boot preparation options for GRUB2 were added.
+
+- Fri May 31 2013 patch release libburn-1.3.0.pl01:
+  cdrskin -msinfo on DVD and BD reported as old session start the same
+  number as the next writable address.
+  Regression introduced by version 1.2.8.
+
+- Fri Aug 07 2013 release 1.3.2:
+  cdrskin has aquired the capability to copy audio tracks to .wav files.
+  It can extract CD-TEXT in a form that is readable for humans and for
+  cdrskin itself. Several small bugs were fixed in xorriso. Its capabilities
+  to serve frontend programs in dialog mode have been improved.
+
+------------------------------------------------------------------------------
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License version 2 or later
+    as published by the Free Software Foundation.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+------------------------------------------------------------------------------
+Clarification in my name and in the name of Mario Danic, upcoming copyright
+holders on toplevel of libburnia. To be fully in effect after the remaining
+other copyrighted code has been replaced by ours and by copyright-free
+contributions of our friends:
+------------------------------------------------------------------------------
+
+We, the copyright holders, agree on the interpretation that dynamical linking
+of our libraries constitutes "use of" and not "derivation from" our work in
+the sense of GPL, provided those libraries are compiled from our unaltered
+code or from altered code published under GPL.
+
+So we will not raise legal protest if you link our libraries dynamically with
+applications which are not under GPL, or if you distribute our libraries
+and application tools in binary form, as long as you fulfill the usual
+condition of GPL to offer a copy of their source code -altered or unaltered-
+under GPL.
+
+We ask you politely to use our work in open source spirit
+and with the due reference to the entire open source community.
+
+If there should really arise the case where above clarification
+does not suffice to fulfill a clear and neat request in open source
+spirit that would otherwise be declined for mere formal reasons,
+only in that case we will duely consider to issue a special license
+covering only that special case.
+It is the open source idea of responsible freedom which will be
+decisive and you will have to prove that you exhausted all own
+means to qualify for GPL.
+
+For now we are firmly committed to maintain one single license: GPL.
+
+signed: Mario Danic, Thomas Schmitt
+Agreement joined later by: Vreixo Formoso
+

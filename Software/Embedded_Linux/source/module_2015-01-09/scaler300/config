@@ -1,0 +1,9 @@
+############################################################
+#
+# SCALER300 Platform Config
+#
+# Select one platform to compiler
+############################################################
+PLATFORM_GM8210 = y
+PLATFORM_GM8287 = n
+PLATFORM_GM8129 = n

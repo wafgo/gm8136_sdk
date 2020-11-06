@@ -1,0 +1,95 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:566: checking host system type
+configure:641: checking for _oss_ioctl in -lossaudio
+configure:660: arm-unknown-linux-uclibcgnueabi-gcc -o conftest   -O      conftest.c -L../libs/x86_64-linux-cc -L../libs/x86_64-linux-cc -L/opt/schily/lib -lossaudio   1>&5
+/usr/src/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/lib/gcc/arm-unknown-linux-uclibcgnueabi/4.4.0/../../../../arm-unknown-linux-uclibcgnueabi/bin/ld: cannot find -lossaudio
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 649 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char _oss_ioctl();
+
+int main() {
+_oss_ioctl()
+; return 0; }
+configure:693: checking how to run the C preprocessor
+configure:714: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:776: checking for sys/cdio.h
+configure:786: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:782:22: error: sys/cdio.h: No such file or directory
+configure: failed program was:
+#line 781 "configure"
+#include "confdefs.h"
+#include <sys/cdio.h>
+configure:776: checking for sys/cdrio.h
+configure:786: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:782:23: error: sys/cdrio.h: No such file or directory
+configure: failed program was:
+#line 781 "configure"
+#include "confdefs.h"
+#include <sys/cdrio.h>
+configure:776: checking for sundev/srreg.h
+configure:786: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:782:26: error: sundev/srreg.h: No such file or directory
+configure: failed program was:
+#line 781 "configure"
+#include "confdefs.h"
+#include <sundev/srreg.h>
+configure:776: checking for sys/audioio.h
+configure:786: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:782:25: error: sys/audioio.h: No such file or directory
+configure: failed program was:
+#line 781 "configure"
+#include "confdefs.h"
+#include <sys/audioio.h>
+configure:776: checking for sun/audioio.h
+configure:786: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:782:25: error: sun/audioio.h: No such file or directory
+configure: failed program was:
+#line 781 "configure"
+#include "confdefs.h"
+#include <sun/audioio.h>
+configure:816: checking for soundcard.h
+configure:826: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:822:23: error: soundcard.h: No such file or directory
+configure: failed program was:
+#line 821 "configure"
+#include "confdefs.h"
+#include <soundcard.h>
+configure:816: checking for sys/soundcard.h
+configure:826: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:816: checking for linux/soundcard.h
+configure:826: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:816: checking for machine/soundcard.h
+configure:826: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:822:31: error: machine/soundcard.h: No such file or directory
+configure: failed program was:
+#line 821 "configure"
+#include "confdefs.h"
+#include <machine/soundcard.h>
+configure:856: checking for sys/asoundlib.h
+configure:866: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:862:27: error: sys/asoundlib.h: No such file or directory
+configure: failed program was:
+#line 861 "configure"
+#include "confdefs.h"
+#include <sys/asoundlib.h>
+configure:856: checking for windows.h
+configure:866: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:862:21: error: windows.h: No such file or directory
+configure: failed program was:
+#line 861 "configure"
+#include "confdefs.h"
+#include <windows.h>
+configure:856: checking for mmsystem.h
+configure:866: arm-unknown-linux-uclibcgnueabi-gcc -E    conftest.c >/dev/null 2>conftest.out
+configure:862:22: error: mmsystem.h: No such file or directory
+configure: failed program was:
+#line 861 "configure"
+#include "confdefs.h"
+#include <mmsystem.h>

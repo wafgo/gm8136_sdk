@@ -1,0 +1,792 @@
+List of assert() calls in libburn. 6 Oct 2006.
+
+Format:
+
+------------------------------------------------------------------------------
+
+   Number) grep'ed line
+   (++ before number means: is fully done, + means is done so far )
+function():
+Description of abort condition.
+
+Possible callers and their relation to the abort condition.
+
+: Error Evaluation
+=> Consequences
+
+Eventual implementation timestamp
+
+------------------------------------------------------------------------------
+
+++ 1) libburn/async.c:	assert(a != NULL);	/* wasn't found.. this should not be possible */
+static remove_worker():
+A thread describing structure (struct w_list) could not be found in
+order to be released.
+
+Called by API burn_drive_scan()
+Called by static erase_worker_func() , thread under API burn_disc_erase()
+Called by static write_disc_worker_func(), thread under API burn_disc_write()
+All three want to clean up after they are done.
+
+: Severe Libburn Error
+=> issue LIBDAX_MSGS_SEV_WARNING
+
+ts A61006
+
+------------------------------------------------------------------------------
+
+++ 2) libburn/async.c:	assert(!(workers && workers->drive));
+API burn_drive_scan():
+Before spawning a thread, the function refuses work because another
+drive activity is going on.
+
+: Severe Application Error
+=> return -1; redefine @return in API , issue LIBDAX_MSGS_SEV_SORRY
+
+ts A61006
+
+------------------------------------------------------------------------------
+
++  3) libburn/async.c:		assert(workers == NULL);
+API burn_drive_scan():
+After thread is done and remover_worker() succeeded, there is still a
+worker registered. Shall probably detect roguely appeared burn or
+erase runs. (I consider to install a mutex shielded function for that.)
+
+: Severe Libburn Error
+=> Same as 1)
+
+ts A61006
+
+------------------------------------------------------------------------------
+
+++ 4) libburn/async.c:	assert(drive);
+      libburn/async.c:	assert(!SCAN_GOING());
+      libburn/async.c:	assert(!find_worker(drive));
+API burn_disc_erase():
+Wants to see a drive (assumes NULL == 0), wants to see no scan and
+wants to see no other worker on that drive. I.e. this would tolerate
+a parallel activity on another drive.
+
+: Severe Application Error
+=> (no return value), issue LIBDAX_MSGS_SEV_SORRY
+
+ts A61006
+
+------------------------------------------------------------------------------
+
+++ 5) libburn/async.c:	assert(!SCAN_GOING());
+      libburn/async.c:	assert(!find_worker(opts->drive));
+API burn_disc_write():
+Same as 4)
+
+: Severe Application Error
+=> Same as 4)
+
+ts A61006
+
+---------------------------------------------------------------------
+
+++ 6) libburn/drive.c:	assert(d->busy == BURN_DRIVE_IDLE);
+API burn_drive_release():
+A drive is not idle on release.
+
+: Severe Application Error
+=> Same as 4)
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 7) libburn/drive.c:			assert(d->released);
+burn_wait_all()
+A drive is found grabbed.
+
+Called by burn_drive_scan_sync(), thread under API burn_drive_scan()
+Called by API burn_finish
+
+: Severe Application Error
+=> rename and redefine burn_wait_all() : now burn_drives_are_clear()
+=> change all use of burn_wait_all()
+=> Move tests up to burn_drive_scan()
+=> There: return -1; issue LIBDAX_MSGS_SEV_SORRY
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 8) libburn/drive.c:	assert(!d->released);
+API burn_disc_get_status()
+Attempt to read status of non-grabbed drive.
+
+: Severe Application Error
+=> extend enum burn_disc_status by BURN_DISC_UNGRABBED
+=> return BURN_DISC_UNGRABBED, issue LIBDAX_MSGS_SEV_SORRY
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 9) libburn/drive.c:	assert(			/* (write_type >= BURN_WRITE_PACKET) && */
+burn_drive_get_block_types():
+Will not work on BURN_WRITE below BURN_WRITE_RAW.
+
+Called by -nobody- ?
+
+: Severe Application Error
+=> inactivate unused function
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 10) libburn/drive.c:	assert(d->idata);
+       libburn/drive.c:	assert(d->mdata);
+static drive_getcaps():
+sg.c:enumerate_common() did not succeed in creating a proper struct burn_drive
+Called by burn_drive_scan_sync()
+
+: Severe System Error
+=> This could possibly really stay an abort() because the reason is
+   a plain failure of the system's memory management.
+=> Detect this failure already in enumerate_common(),
+   issue LIBDAX_MSGS_SEV_FATAL, return
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 11) libburn/drive.c:	assert(burn_running);
+burn_drive_scan_sync():
+The library was not initialized.
+
+Called as thread by API burn_drive_scan()
+
+: Severe Application Error
+=> Move this test up to burn_drive_scan()
+=> There: return -1; redefine @return in API , issue LIBDAX_MSGS_SEV_FATAL
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 12) libburn/drive.c:			assert(d->released == 1);
+burn_drive_scan_sync():
+Inactivated
+
+: (Severe Application Error)
+=> throw out inactivated code
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 13) libburn/drive.c:	assert(strlen(d->devname) < BURN_DRIVE_ADR_LEN);
+burn_drive_raw_get_adr():
+An enumerated device address is longer than the API's maximum length
+
+Called by API burn_drive_get_adr()
+Called by API burn_drive_obtain_scsi_adr()
+
+: Severe Libburn Error
+=> return -1; in all three functions, enhance burn_drive_get_adr @return docs
+=> issue LIBDAX_MSGS_SEV_SORRY
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 14) libburn/drive.c:	assert(drive_info->drive!=NULL);
+API burn_drive_get_adr():
+Drive info has no drive attached.
+
+: Severe Libburn Error (unlikely, will eventually SIGSEGV on NULL)
+=> delete assert
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 15) libburn/init.c:	assert(burn_running);
+API burn_finish():
+The library is not initialized
+
+: Severe Application Error
+=> return (assume no msg system)
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 16) libburn/init.c:	assert(burn_running);
+API burn_preset_device_open():
+The library is not initialized
+
+: Severe Application Error
+=> return (assume no msg system)
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 17) libburn/mmc.c:	assert(o->drive == d);
+mmc_close_disc():
+alias: struct burn_drive.close_disc()
+Parameters struct burn_drive and struct burn_write_opts do not match
+
+Called by -nobody- ?
+
+( => Disable unused function ? )
+=> removed redundant parameter struct burn_drive
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 18) libburn/mmc.c:	assert(o->drive == d);
+mmc_close_session():
+Same as 17)
+alias: struct burn_drive.close_session()
+
+Called by -nobody- ?
+
+( => Disable unused function ? )
+=> removed redundant parameter struct burn_drive
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 19) libburn/mmc.c:	assert(buf->bytes >= buf->sectors);	/* can be == at 0... */
+mmc_write_12():
+- Unclear what .bytes and .sectors mean in struct buffer -
+
+Called by -nobody- ?
+
+=> problems with filling the write buffer have to be handled by callers
+=> delete assert 
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 20) libburn/mmc.c:	assert(buf->bytes >= buf->sectors);	/* can be == at 0... */
+mmc_write():
+- Unclear what .bytes and .sectors mean in struct buffer -
+
+libburn/mmc.c:          c.page->sectors = errorblock - start + 1;
+mmc_read_sectors() by toc_find_modes() by mmc_read_toc() alias drive.read_toc()
+by burn_drive_grab()
+This seems to be unrelated to mmc_write().
+
+libburn/sector.c:       out->sectors++;
+get_sector()
+Seems to hand out sector start pointer in opts->drive->buffer
+and to count reservation transactions as well as reserved bytes.
+Ensures out->bytes >= out->sectors
+
+
+libburn/mmc.c:  c.page->bytes = s->count * 8;
+mmc_send_cue_sheet()
+Does not use mmc_write() but directly (sg_)issue_command()
+
+libburn/sector.c:       out->bytes += seclen;
+get_sector()
+See above
+Ensures out->bytes >= out->sectors
+
+libburn/spc.c:  c.page->bytes = 8 + 2 + d->mdata->retry_page_length;
+spc_select_error_params()
+Does not use mmc_write() but directly (sg_)issue_command()
+
+libburn/spc.c:  c.page->bytes = 8 + 2 + d->mdata->write_page_length;
+spc_select_error_params()
+Does not use mmc_write() but directly (sg_)issue_command()
+
+libburn/spc.c:          c.page->bytes = 8 + 2 + 0x32;
+spc_probe_write_modes()
+Does not use mmc_write() but directly (sg_)issue_command()
+
+alias struct burn_drive.write()
+Called by static get_sector, by many
+Called by burn_write_flush
+Called by burn_write_track
+
+=> problems with filling the write buffer have to be handled by callers
+=> delete assert 
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 21) libburn/mmc.c:	assert(((dlen - 2) % 11) == 0);
+mmc_read_toc():
+- Is defunct -
+
+=> :)
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 22) libburn/mmc.c:	assert(len >= 0);
+mmc_read_sectors():
+Catches a bad parameter
+
+alias: struct burn_drive.read_sectors()
+Called by API burn_disc_read() , - is defunct -, one could catch the problem
+Called by toc_find_modes(), problem cannot occur: mem.sectors = 1;
+
+: Severe Libburn Error
+(=> in burn_disc_read() check page.sectors before d->read_sectors() )
+=> :)
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 23) libburn/mmc.c:	assert(d->busy);
+mmc_read_sectors():
+Catches use of a drive that is not marked as busy
+
+alias: struct burn_drive.read_sectors()
+Called by API burn_disc_read() , - is defunct -, busy = BURN_DRIVE_READING;
+Called by toc_find_modes(), does the same assert. To be solved there.
+
+: Severe Libburn Error
+=> :)
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 24) libburn/options.c:	assert(0);
+API burn_write_opts_set_write_type():
+Detects unsuitable enum burn_write_types write_type and int block_type.
+API promises return 0 on failure
+
+: Severe Application Error
+=> issue LIBDAX_MSGS_SEV_SORRY
+=> should also detect problem of 26) : wrong write_type,block_type combination
+   by calling sector_get_outmode() and checking for -1
+=> should also detect problem of 41) : unknown block_type
+   by spc_block_type() and checking for -1
+=> delete assert(0)
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 25) libburn/read.c:	assert((o->version & 0xfffff000) == (OPTIONS_VERSION & 0xfffff000));
+       libburn/read.c:	assert(!d->busy);
+       libburn/read.c:	assert(d->toc->valid);
+       libburn/read.c:	assert(o->datafd != -1);
+API burn_disc_read():
+- ? -
+
+burn_disc_read() is defunct
+OPTIONS_VERSION does not occur outside this line
+
+( => one would return )
+( 22) => catch page.sectors<0 before d->read_sectors() )
+( 37) => catch ! d->mdata->valid )
+=> :)
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 26) libburn/sector.c:	assert(0);		/* return BURN_MODE_UNIMPLEMENTED :) */
+static get_outmode():
+burn_write_opts is wrongly programmed with .write_type and .block_type
+
+: Severe Application Error
+=> This gets handled by burn_write_opts_set_write_type()
+   ts A61007 by new semi-public sector_get_outmode()
+=> delete assert()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 27) libburn/sector.c:	assert(outlen >= inlen);
+       libburn/sector.c:	assert(outmode & BURN_MODE_RAW);
+       libburn/sector.c:	assert(offset != -1);
+static convert_data():
+Several unacceptable settings within struct burn_write_opts
+
+Called by sector_toc() sector_pregap() sector_postgap() sector_lout()
+          sector_data() 
+
+: Severe Application Error
+=> change return type of convert_data()
+=> all callers interpret return value and eventually return failure
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 28) libburn/sector.c:	assert(0);
+static char_to_isrc():
+Called by subcode_user() with data set by API burn_track_set_isrc()
+Some character conversion fails on wrong input
+
+: Severe Application Error
+=> burn_track_set_isrc() has to make sure that only good data are set
+=> char_to_isrc() returns 0 as default
+=> delete assert()
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 29) libburn/sector.c:	assert(qmode == 1 || qmode == 2 || qmode == 3);
+subcode_user():
+- can not happen -
+
+: Unknown reason of assert()
+=> remove assert()
+
+ts A61010
+
+------------------------------------------------------------------------------
+
+++ 30) libburn/sector.c:	assert(modebyte == 1);
+sector_headers():
+Does only accept modes BURN_AUDIO, BURN_MODE1 or write_type BURN_WRITE_SAO
+
+Called by sector_toc() sector_pregap() sector_postgap() sector_lout()
+          sector_data()
+
+: Severe Libburn Error
+=> new functions sector_headers_is_ok(), burn_disc_write_is_ok() 
+   help to catch problem in API burn_disc_write()
+=> issue LIBDAX_MSGS_SEV_FATAL
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 31) libburn/sector.c:		assert(0);
+process_q()
+- defunct -
+
+=> :)
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 32) libburn/sg.c:		assert("drive busy" == "non fatal");
+sg_handle_busy_device():
+Intentional abort preset by the app
+
+=> change to abort()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 33) libburn/sg.c:	assert(fd != -1337);
+sg_grab():
+The drive device file could not be opened
+
+:Severe External Problem
+=> obsolete by normal drive open failure handling
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 34) libburn/sg.c:		assert(!c->page);
+sg_issue_command():
+An SCSI command of direction NO_TRANSFER may not have a .page != NULL.
+
+Since it is about exposing a libburn detail towards the sg driver, i believe
+it is sufficient to just not use it.
+
+: Libburn Error
+=> enhance internal logics of sg_issue_command()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 35) libburn/sg.c:			assert(c->page->bytes > 0);
+sg_issue_command():
+An SCSI command of direction TO_DRIVE wants to transfer 0 bytes.
+
+: Severe Libburn Error
+=> set command.error = 1 and return 0
+
+ts A61010
+
+------------------------------------------------------------------------------
+
+++ 36) libburn/sg.c:		assert(err != -1);
+sg_issue_command():
+The transfer of the command via ioctl() failed 
+
+: Severe Transport Level Problem
+=> close drive fd, set idle and released
+=> set command.error = 1 and return -1
+
+ts A61010
+
+------------------------------------------------------------------------------
+
+++ 37) libburn/spc.c:	assert(d->mdata->valid);
+spc_select_error_params():
+Drive was not properly programmed
+
+alias struct burn_drive.send_parameters()
+Called by burn_disc_read, - defunct -
+
+: Severe Application Error
+=> moved up as mangled assert to burn_disc_read()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 38) libburn/spc.c:	assert(d->mdata->cdr_write || d->mdata->cdrw_write ||
+spc_sense_write_params():
+Drive does not offer write of any known media type
+
+alias struct burn_drive.read_disc_info()
+Called by API burn_drive_grab (assert test made there in soft)
+
+: Severe Command Level Problem
+=> remove assert()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 39) libburn/spc.c:	assert(o->drive == d);
+spc_select_write_params():
+Drive does not match struct burn_write_opts
+
+alias struct burn_drive.send_write_parameters()
+Called by mmc_close_disc() (-defunct- ?), mmc_close_session() (-defunct- ?),
+          burn_write_track() (d = o->drive;), 
+          burn_disc_write_sync() d = (o->drive;)
+
+: Severe Libburn Error
+=> remove assert()
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 40) libburn/spc.c:	assert(d->mdata->valid);
+spc_select_write_params():
+Drive was not properly programmed
+
+Called by (see 39)
+  burn_write_track() by burn_write_session() by burn_disc_write_sync()
+  burn_disc_write_sync() indirectly by API burn_disc_write()
+
+: Severe Libburn Error
+=> caught in burn_disc_write() now
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 41) libburn/spc.c:	assert(0);
+spc_block_type():
+Unknown value with enum burn_block_types
+
+Called by spc_select_write_params, uses burn_write_opts.block_type,
+       set by API burn_write_opts_set_write_type()
+
+: Severe Application Error
+=> catch in API burn_write_opts_set_write_type
+   by calling spc_block_type()
+=> delete assert
+
+ts A61007
+
+------------------------------------------------------------------------------
+
+++ 42) libburn/structure.c:	assert(!(pos > BURN_POS_END));\
+macro RESIZE
+An illegal list index is given by the app.
+
+( TO->NEW##s obviusly means to append "s" to cpp result of TO->NEW )
+Used by API burn_session_add_track() and API burn_disc_add_session()
+
+: Severe Application Error
+=> replace assert by if-and-return-0
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 43) libburn/structure.c:	assert(s->track != NULL);
+API burn_session_remove_track()
+An application supplied pointer is NULL
+
+: Severe Application Error
+=> replace by if-and-return-0
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 44) libburn/structure.c:		assert((country[i] >= '0' || country[i] < '9') &&
+        libburn/structure.c:		assert((owner[i] >= '0' || owner[i] < '9') &&
+        libburn/structure.c:	assert(year <= 99);
+        libburn/structure.c:	assert(serial <= 99999);
+API burn_track_set_isrc():
+Illegal texts supplied by application.
+The logical expression is always true !
+
+: Severe Application Error
+=> issue LIBDAX_MSGS_SEV_SORRY and return
+=> delete assert
+=> delete assert 28) in char_to_isrc()
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 45) libburn/toc.c:				assert(0);	/* unhandled! find out ccd's
+static write_clonecd2():
+
+ - defunct -, - unused -
+
+=> mangle assert
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 46) libburn/toc.c:	assert(d->busy);
+toc_find_modes():
+The drive to work on is not marked busy
+
+Called by mmc_read_toc() alias read_toc() by ... burn_drive_grab()
+
+: Severe Libburn Error
+=> to be prevented on the higher levels
+=> delete assert
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 47) libburn/util.c:	assert(s);
+burn_strdup()
+Abort on NULL string which would elsewise cause a SIGSEGV
+
+Used once in enumerate_common() with a string that worked with open(2) before
+
+: Severe Libburn Error
+=> delete assert
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 48) libburn/util.c:	assert(s);
+burn_strndup(): - unused -
+Same as 47
+
+: Severe Libburn Error
+=> return NULL
+=> delete assert
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 49) libburn/util.c:	assert(n > 0);
+burn_strndup(): - unused -
+Prevent problems by negative copy length
+
+: Severe Libburn Error
+=> return NULL
+=> delete assert
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 50) libburn/write.c:		assert(0);
+static type_to_ctrl():
+Unsuitable mode to be converted into "ctrl"
+Called by static type_to_form() finally burn_create_toc_entries()
+
+: Severe Application Error
+=> to be caught in burn_track_define_data by calling for test type_to_form()
+=> return -1;
+
+ts A61008
+
+------------------------------------------------------------------------------
+
+++ 51) libburn/write.c:		assert(0);
+       libburn/write.c:		assert(0);	/* XXX someone's gonna want this sometime */
+static type_to_form():
+Does not like BURN_MODE0 or BURN_MODE2 but tolerates unknown modes
+
+Called by static burn_create_toc_entries() by burn_disc_write_sync()
+
+: Undocumented Libburn Restriction
+=> set *form = -1 , *ctladr = 0xff , return
+=> make function non-static
+=> call for test in API  burn_track_define_data()
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 52) libburn/write.c:	assert(ptr);
+static add_cue():
+realloc() failed
+
+Called by burn_create_toc_entries() by burn_disc_write_sync()
+(burn_create_toc_entries is ignorant towards own potential memory problems)
+(This could possibly really stay an abort() because the reason is
+ a plain failure of the system's memory management.)
+
+: Severe System Error
+=> change return type of add_cue to int
+=> react on return -1 in burn_create_toc_entries, return NULL on failure
+=> abort burn_disc_write_sync() on NULL return
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 53) libburn/write.c:	assert(d->toc_entry == NULL);
+burn_create_toc_entries():
+Multiple usage of struct burn_drive.toc_entry
+
+Called by burn_disc_write_sync() 
+This will probably trigger an abort with disc->sessions > 1
+(disc->sessions is incremented in macro RESIZE() as "NEW##s")
+
+: Design Problem
+( => ? disallow multiple sessions ? )
+=> replace assert by soft means and wait what happens
+
+ts A61009
+
+------------------------------------------------------------------------------
+
+++ 54) libburn/write.c:	assert(0);
+burn_sector_length():
+Only BURN_AUDIO, BURN_MODE_RAW, BURN_MODE1 are allowed
+
+Called by get_sector(), convert_data(), ...
+
+=> call burn_sector_length() for test in API  burn_track_define_data()
+=> replace assert by -1
+
+ts A61009
+
+------------------------------------------------------------------------------
+

@@ -1,0 +1,6 @@
+[8210]
+If you want to support HW OSG on 8210 , please use "make 8210_hw=y" to make HW OSG.Otherwise "make" support SW OSG for 8210
+[8287]
+The 8287 default is supporting HW OSG , so use "make" to make 8287 HW OSG.
+[8139]
+The 813x default is supporitng SW OSG.

@@ -1,0 +1,50 @@
+#CC = gcc
+CC = arm-none-linux-gnueabi-gcc
+AS = arm-none-linux-gnueabi-as
+AR = arm-none-linux-gnueabi-ar
+
+CFLAGS = -O3 -Wall -march=armv5te
+DFLAGS = -O3 -Wall -fPIC -march=armv5te
+LDFLAGS = -Wl -s -lpthread
+
+LIBS=
+
+PROGS = resample
+
+INCLUDE =
+
+CSRC = main_1.c \
+	resample.c \
+	main_2.c \
+	utility.c
+
+#ASRC =
+
+COBJ = ${CSRC:%.c=%.o}
+#AOBJ = ${ASRC:%.s=%.o}
+
+SLIB = resample.a
+DLIB = libresample.so 
+
+
+all: $(COBJ)
+	$(AR) -r $(SLIB) C_Obj/resample.o
+	$(CC) resample.c $(DFLAGS) -shared -o $(DLIB)
+	$(CC) $(LDFLAGS) C_Obj/main_1.o C_Obj/utility.o $(SLIB) -o resample
+	$(CC) $(LDFLAGS) -L. -lresample C_Obj/main_1.o C_Obj/utility.o -o resample_1
+	$(CC) $(LDFLAGS) -L. -lresample C_Obj/main_2.o C_Obj/utility.o -o resample_2
+	
+%.o: %.c
+	-echo '---------------------------------------------'
+	-dos2unix $< $<
+	$(CC) $(CFLAGS) -c -o C_Obj/$@ $<
+
+clean :
+	-rm -f C_Obj/*.o
+	-rm -f $(SLIB)
+	-rm -f $(DLIB)
+	-rm -f resample_1
+	-rm -f resample_2
+	-echo '============================================='
+	
+

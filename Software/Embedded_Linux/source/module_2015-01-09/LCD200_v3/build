@@ -1,0 +1,46 @@
+#!/bin/bash
+
+if [ -f ../module_conf ]; then
+. ../module_conf
+else
+    SDK_SRC="/usr/src/arm-linux-2.6"
+fi
+
+ROOT_DIR=${SDK_SRC}/target
+
+False_Act()
+{
+	cat mk.err  
+	exit 1
+}
+
+make modules 2> mk.err || False_Act
+
+[ -f $ROOT_DIR/.config ] && . $ROOT_DIR/.config
+
+COPY_MODULE()
+{
+    if [ "$CONFIG_LCD200" ]; then
+	cp flcd200-common.ko $1
+	cp flcd200-pip.ko $1
+	cp flcd200-pip2.ko $1
+    fi
+}
+
+if [ -d $ROOT_DIR/rootfs-cpio ]; then
+    COPY_MODULE $ROOT_DIR/rootfs-cpio/lib/modules
+fi
+
+if [ -d $ROOT_DIR/tmp ]; then
+	COPY_MODULE $ROOT_DIR/tmp/lib/modules
+fi
+
+if [ -f $ROOT_DIR/ramdisk.gz ]; then
+        gzip -d $ROOT_DIR/ramdisk.gz
+        mkdir -p $ROOT_DIR/tmp
+	mount -o loop $ROOT_DIR/ramdisk $ROOT_DIR/tmp
+	COPY_MODULE $ROOT_DIR/tmp/lib/modules
+	umount $ROOT_DIR/tmp
+	gzip -9 $ROOT_DIR/ramdisk
+	rm -rf $ROOT_DIR/tmp
+fi

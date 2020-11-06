@@ -1,0 +1,9 @@
+-. mainAPI ver0.2 [01Jul2011]
+   1. add ultra-NR function.
+   2. change 3DNR range from 0~63 to 0~60.(recommand : 34)
+   3. normal 3DNR range : 0~50, ultra 3DNR range : 51~60.
+
+-. mainAPI ver0.2 [23Jun2011]
+   1. fix HDMI-TX compliance test.
+   2. add mask-revision code.
+   3. fix the bug (major & minor).

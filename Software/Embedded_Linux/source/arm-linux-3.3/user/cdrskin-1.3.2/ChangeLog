@@ -1,0 +1,413 @@
+SVN trunk (to become libburn-1.3.2 or higher)
+===============================================================================
+* Bug fix: cdrskin -msinfo on DVD and BD reported
+           old session start = next writable address.
+           Regression introduced by version 1.2.8 (rev 4956).
+* Bug fix: The signal handler aborted on SIGCONT, SIGTSTP, SIGTTIN, SIGTTOU
+* New API call burn_make_input_sheet_v07t()
+* API call burn_session_input_sheet_v07t(): read multiple blocks from same file
+* New API calls burn_drive_extract_audio(), burn_drive_extract_audio_track()
+* New cdrskin option textfile_to_v07t=
+* New cdrskin options cdtext_to_textfile= and cdtext_to_v07t=
+* New cdrskin options extract_audio_to= , extract_tracks= , extract_basename= ,
+  --extract_dap
+* New cdrskin option --pacifier_with_newline
+* Improved granularity of SCSI log time measurement, now with timestamp
+* Optional "make doc" now demands doxygen 1.8.4
+
+
+libburn-1.3.0.pl01.tar.gz Fri May 31 2013
+===============================================================================
+* Bug fix: cdrskin -msinfo on DVD and BD reported
+           old session start = next writable address.
+           Regression introduced by version 1.2.8.
+
+libburn-1.3.0.tar.gz Fri May 17 2013
+===============================================================================
+* Bug fix: Full formatting of BD-RE used certification regardless of drive
+           capabilities
+* Bug fix: DVD+R with damaged TOC were reported by -minfo with wrong end
+           address
+
+libburn-1.2.8.tar.gz Mon Mar 18 2013
+===============================================================================
+* Bug fix: All CD tracks were reported with the sizes of the tracks in the 
+           first session. Regression introduced with version 1.2.0 (rev 4552).
+* Bug fix: On some drives the request for minimum speed yielded maximum speed
+* New cdrskin option --list_speeds
+* -toc and -minfo now report about tracks in the incomplete session
+* New API call burn_disc_get_incomplete_sessions()
+* New burn_toc_entry component .track_status_bits
+
+libburn-1.2.6.tar.gz Tue Jan 08 2013
+===============================================================================
+* Bug fix: Speed setting had no effect on BD media
+* New cdrskin option --no_load
+* New API call burn_read_audio()
+* New API call burn_list_sev_texts()
+
+libburn-1.2.4.tar.gz Fri Jul 20 2012
+===============================================================================
+* Bug fix: CD SAO sessions with data tracks started by an audio pause
+* Bug fix: CD tracks were perceived 2 sectors too short.
+           Nice with TAO, bad with SAO.
+* Bug fix: cdrskin SIGSEGV if track source was added when no drive was available
+* New API call burn_write_opts_set_obs_pad(), ./configure --enable-dvd-obs-pad
+* New cdrskin option --obs_pad
+
+libburn-1.2.2.tar.gz Mon Apr 02 2012
+===============================================================================
+* Small internal refinements
+
+libburn-1.2.0.tar.gz Sat Jan 28 2012
+===============================================================================
+* Bug fix: cdrskin produced a memory fault if interupted before writing began
+* Bug fix: Solaris adapter mishandled write commands which failed on first try
+* Bug fix: Interrupting libburn while drive tray is loading led to endless loop
+* Bug fix: Progress report with blanking and formatting could be bogus
+* New API calls burn_disc_get_leadin_text(), burn_write_opts_set_leadin_text()
+* New API calls for composing CD-TEXT, see doc/cdtext.txt
+* New API call burn_session_by_cue_file() for reading CDRWIN .cue files
+* New API call burn_track_set_isrc_string()
+* New API calls burn_track_set_index(), burn_track_clear_indice()
+* New API calls burn_session_set_start_tno(), burn_session_get_start_tno()
+* New API calls burn_track_set_pregap_size(), burn_track_set_postgap_size()
+* Implemented cdrskin option textfile=
+* Implemented cdrskin option combination -vv -toc for cdtext.dat production
+* Implemented cdrskin options mcn= and isrc=
+* Implemented cdrskin options -scms -copy -nocopy -preemp -nopreemp
+* Implemented cdrskin option index=
+* Partly implemented cdrskin options cuefile= and -text
+* New cdrskin option input_sheet_v07t= for CD-TEXT definition
+* New cdrskin options --cdtext_dummy and --cdtext_verbose
+* New cdrskin options --four_channel --two_channel
+* New cdrskin option cd_start_tno= 
+* New cdrskin options sao_pregap=, sao_postgap=
+
+libburn-1.1.8.tar.gz Mon Nov 21 2011
+===============================================================================
+* Bug fix: Misinterpreted mode page 2A if block descriptors are present
+* Enabled recognition of QEMU DVD-ROM 0.12
+* Avoiding to intermediately close and open drive device file
+* New API call burn_drive_re_assess()
+
+libburn-1.1.6.tar.gz Tue Sep 27 2011
+===============================================================================
+* Bug fix: stdio sizes > 4 TB - 32 kB caused integer rollover
+* Worked around a collision with Linux udev which lets links vanish
+
+libburn-1.1.4.tar.gz Sun Aug 07 2011
+===============================================================================
+* Bug fix: Some drives return -150 as NWA of blank CD, rather than 0.
+           libburn forwarded this misleading information to the application.
+* Bug fix: Some drives returned wrong CD sizes after having burned DVD-R
+* Bug fix: Empty ROM drive was mistaken to hold an unsuitable disc
+* Bug fix: Avoiding to load speed descriptor list twice
+* New API call burn_lookup_device_link()
+* New API call burn_disc_get_phys_format_info()
+* New cdrskin option --device_links
+
+Release 1.1.2 was skipped to get back in sync with libisoburn.
+
+libburn-1.1.0.pl01.tar.gz Mon Jun 20 2011
+===============================================================================
+* Bug fix: libburn-1.1.0 compiled only on Linux, FreeBSD, and Solaris
+
+libburn-1.1.0.tar.gz Sat Jun 18 2011
+===============================================================================
+* Bug fix: burn_disc_format() on DVD-RW issued wrong block size with type 00h
+* New API call burn_disc_next_track_is_damaged()
+* New API call burn_disc_close_damaged()
+* Dropped suffix .plXY from tarball name
+
+Release 1.0.8 was skipped to get back in sync with libisofs and libisoburn.
+
+libburn-1.0.6.pl00.tar.gz Sat Apr 9 2011
+===============================================================================
+* Burning DVD-R DAO with 2 kB size granularity rather than 32 kB
+* New API call burn_allow_drive_role_4()
+
+libburn-1.0.4.pl00.tar.gz Thu Mar 3 2011
+===============================================================================
+* Bug fix: Read-only file descriptors were classified as write-only pseudo
+           drives
+
+libburn-1.0.2.pl00.tar.gz Wed Feb 23 2011
+===============================================================================
+* Removed compilation obstacles on Solaris 9.
+* Improved recognition of non-seekable stdio pseudo-drives.
+
+libburn-1.0.0.pl00.tar.gz Sun Jan 16 2011
+===============================================================================
+* Allowed umask to create stdio-drive files with rw-permissions for all
+* cdrskin now refuses to burn if the foreseeable size exceeds media capacity
+
+libburn-0.9.0.pl00.tar.gz Wed Dec 08 2010
+===============================================================================
+* Regression fix: SCSI reply data logging was disabled in release 0.8.6
+
+libburn-0.8.8.pl00.tar.gz Wed Oct 20 2010
+===============================================================================
+* New API call burn_offst_source_new()
+* New API call burn_disc_get_bd_spare_info()
+
+libburn-0.8.6.pl00.tar.gz Fri Sep 17 2010
+===============================================================================
+* Lifted test reservation on DVD-R DL media.
+* Hiding all non-API symbols from the linker by use of --version-script
+* Now with history of release notes in ./ChangeLog file.
+
+libburn-0.8.4.pl00.tar.gz Wed Jun 30 2010
+===============================================================================
+* General POSIX system adapters ignore SIGWINCH and SIGURG if defined
+* Allowed 64 kB max output buffer size on all OSes
+
+libburn-0.8.2.pl00.tar.gz Fri Jun 11 2010
+===============================================================================
+* New system adapter for Solaris uscsi (tested on snv134, kernel 5.11)
+* Bug fix: CD TOC was not read if the first track did not start at LBA 0
+* Bug fix: CD-ROM media got attributed random lead-in and lead-out adresses
+* Bug fix: SIGSEGV of experimental libcdio system adapter if drive list is
+  empty
+
+libburn-0.8.0.pl00.tar.gz Fri Apr 09 2010
+===============================================================================
+* libburn now works with ahci driver on FreeBSD 8-STABLE.
+
+libburn-0.7.8.pl00.tar.gz Wed Mar 10 2010
+===============================================================================
+* Bug fix: On FreeBSD, piped input was falsely attributed a small fixed size.
+* Built-in abort handling is more suitable for FreeBSD now.
+cdrskin novelties:
+* Bug fix: Option fs=0 led to SIGSEGV. Regression introduced by version 0.7.4
+  in december 2009.
+* Abort handling is more suitable for FreeBSD now.
+
+libburn-0.7.6.pl00.tar.gz Sat Jan 23 2010
+===============================================================================
+* Bug fix: System adapter for generic X/Open was missing in libburn release
+  tarball
+* Bug fix: with non-Linux adapters there were 0 readable bytes on block devices
+* Made FreeBSD system adapter safe from mutal burn spoiling and drive deadlock
+* Enabled FreeBSD system adapter for Debian kfreebsd
+* Experimental SCSI transport adapter via GNU libcdio 0.83git
+cdrskin novelties:
+* none
+
+libburn-0.7.4.pl01.tar.gz Sat Dec 26 2009
+===============================================================================
+* Bug fix: Added missing system adapter for generic X/Open to libburn release
+  tarball
+
+Libburn 0.7.4.pl00 Mon Dec 07 2009
+===============================================================================
+* Bug fix: SIGSEGV from NULL pointer with media product id inquiry on LG
+  GH22LS30
+* Bug fix: DVD DAO track size was rounded up much too generously
+* Workaround for Pioneer DVR-216D which got stuck on DVD-R burns. 
+  (already fixed in 0.7.2.pl01)
+* Workaround for Pioneer DVR-216D refusal to eject.
+  (already fixed in 0.7.2.pl01)
+* Configure options --enable-dvd-obs-64k, --enable-track-src-odirect
+* New API calls burn_write_opts_set_dvd_obs(), 
+  burn_write_opts_set_stdio_fsync()
+* New API call burn_set_scsi_logging()
+* New API calls burn_fifo_get_statistics(), burn_fifo_next_interval(),
+  burn_fifo_fill()
+* Re-implemented ECMA-130 P-parity, Q-parity and scrambling for BURN_WRITE_RAW
+cdrskin novelties:
+* cdrskin option -V for logging of SCSI commands
+* New cdrskin options dvd_obs= and stdio_fsync=
+* New compile_cdrskin.sh option -dvd_obs_64k
+
+libburn-0.7.2.pl01.tar.gz Fri Nov 13 2009
+===============================================================================
+* Workaround for Pioneer DVR-216D which got stuck on DVD-R burns.
+* Workaround for Pioneer DVR-216D refusal to eject.
+
+Libburn 0.7.2.pl00 Mon Oct 12 2009
+===============================================================================
+* Bug fix: CD TAO sessions with multiple tracks did not work in -dummy mode
+* New API calls burn_get_media_product_id() , burn_guess_manufacturer() ,
+  burn_guess_cd_manufacturer()
+* New API call burn_disc_get_cd_info()
+* New API call burn_track_set_cdxa_conv()
+cdrskin novelties:
+* Better interpretation of options -mode2, -xa, -xa1, -xa2
+* New option --xa1-ignore
+* New -atip report lines "Product Id:" and "Producer:"
+
+libburn-0.7.0.pl00.tar.gz Thu Aug 27 2009
+===============================================================================
+* New API calls burn_drive_get_all_profiles(), burn_obtain_profile_name() allow
+  to inquire and process the list of supported media types. cdrskin lists all
+  supported profiles with option -atip -v
+* New API call burn_drive_snooze() allows to calm down a drive when no i/o is
+  expected for a while.
+* Bug fix: Some SCSI commands stalled on U3 memory sticks which appear as a hub
+  with a memory stick and a CD-ROM drive containing a small CD. These commands
+  make not much sense with a CD-ROM and are now avoided for this media 
+  situation.
+
+libburn-0.6.8.pl00.tar.gz Tue Jul 14 2009
+===============================================================================
+* Bug fix: Old MMC-1 drives were rejected because of mode page 2Ah length.
+* cdrskin -scanbus now works with high SCSI bus numbers.
+
+libburn-0.6.6.pl00.tar.gz Fri May 8 2009
+===============================================================================
+* Bug fix: Improper abort handling with broken pipe during outputto a stdio:
+  pseudo-drive.
+* Bug fix: Device scan stalled on FreeBSD with non-burner USB device
+
+libburn-0.6.4.pl00.tar.gz Fri Mar 13 2009
+===============================================================================
+* New operating system adapter "dummy" for stdio on general X/Open systems
+* New API function burn_drive_set_stream_recording() allows to write the 
+  crucial start blocks of a filesystem with slow BD-RE Defect Management and to
+  write the bulk of data with full nominal speed.
+
+libburn-0.6.2.pl00.tar.gz Fri Feb 20 2009
+===============================================================================
+* Improvements with build system for FreeBSD
+
+libburn-0.6.0.pl01.tar.gz Wed Jan 07 2009
+===============================================================================
+* Bug fix: BD-R were not correctly finalized
+
+libburn-0.6.0.pl00.tar.gz Sun Jan 04 2009
+===============================================================================
+* Formatting and writing of BD-R media
+* New API function burn_get_read_capacity()
+
+libburn-0.5.8.pl00.tar.gz Mon Dec 08 2008
+===============================================================================
+* Bug fix: A session without leadout entry on CD caused a SIGSEGV by NULL
+* Improvements about BD-RE formatting
+
+libburn-0.5.6.pl00.tar.gz Wed Nov 12 2008
+===============================================================================
+* Bug fix: libburn fifo thread was not aborted when burn run was aborted which
+  could lead to use of freed memory.
+
+libburn-0.5.4.pl00.tar.gz Mon Oct 6 2008
+===============================================================================
+* Bug fix: On Linux 2.4 /dev/sr0 was accepted as enumerable address but then
+  failed to work.
+
+libburn-0.5.2.pl00.tar.gz Wed Aug 20 2008
+===============================================================================
+* Larger set of possibly acceptable drive device file names
+
+libburn-0.5.0.pl00.tar.gz Thu Jul 17 2008
+===============================================================================
+* Bug fix: cdrskin option drive_scsi_dev_family=scd lead to buffer overflow
+* Ability to use /dev/scd as fallback if /dev/sr does not exist
+* New API call burn_fifo_peek_data()
+
+libburn-0.4.8.pl00.tar.gz Sat May 17 2008
+===============================================================================
+* Bug fix: Random access addressing for DVD-RAM and BD-RE did not work.
+* cdrskin: Affected were options write_start_address= and 
+  -- grow_overwriteable_iso on DVD-RAM or BD-RE.
+* xorriso: Affected were sessions on DVD-RAM or BD-RE after the first one.
+
+libburn-0.4.6.pl00.tar.gz Sun May 11 2008
+===============================================================================
+* Support for BD-RE media is now official
+* New burn_write_opts_set_stream_recording() can speed up DVD-RAM and BD-RE
+* New cdrskin option --list_formats
+* New cdrskin blank types for expert formatting of DVD-RAM and BD-RE
+* New cdrskin blank type blank=as_needed for automatic handling of media
+
+libburn-0.4.4.tar.gz Thu April 10 2008
+===============================================================================
+* Support for DVD+R/DL media is now official
+
+libburn-0.4.2.tar.gz Sun Feb 3 2008
+===============================================================================
+* Long term commitment to ABI libburn.so.4.
+* ABI compatibility is guaranteed for any older feature set released since
+  libburn-0.3.2 about one year ago.
+* libburn provides means for compile time and runtime checking of its version.
+* Compile time check in cdrskin for proper version of libburn include file.
+  Required is at least 0.4.2.
+* Runtime check in cdrskin prevents dynamic linking with outdated version of
+  libburn.so.4. Required is at least the version seen in the include file at
+  compile time.
+
+libburn-0.4.0.tar.gz Mon Oct 29 2007
+===============================================================================
+* New option direct_write_amount=
+* New option --grow_overwriteable_iso
+* New option --allow_emulated_drives dev=stdio:<path>
+* More cdrecord options supported: -format, -inq, -load, -lock, -immed, -waiti
+* New option fallback_program=
+* A lot of libburn API additions.
+
+libburn-0.3.8.tar.gz Tue Jul 31 2007
+===============================================================================
+* Now able to cope with the peculiarities of Linux 2.4 USB
+* Refusal to perform -dummy runs on media which cannot simulate burning
+* New option modesty_on_drive= may help with hda -> hdb burns
+* New option minbuf= , cdrecord compatible frontend of modesty_on_drive=
+* New option --adjust_speed_to_drive
+* Precautions against using the burner drive as track source
+* Note: ABI has not been broken.
+
+libburn-0.3.6.tar.gz Thu Apr 26 2007
+===============================================================================
+* On Linux kernel 2.6, /dev/sr* gets used rather than /dev/sg*.
+* DVD+R now get finalized (if not -multi is given)
+
+libburn-0.3.4.tar.gz Mon Mar 12 2007
+===============================================================================
+* Multi-session recording on DVD+R, including -toc, -msinfo
+* Options --tell_media_space , assert_write_lba=
+* Bug fix of rare multi track fifo stall
+
+libburn-0.3.2.tar.gz Feb 11 2007
+===============================================================================
+* Burnfree enabled by default
+* Multi-session recording on sequential DVD-R[W], including -toc, -msinfo
+* DVD-R[W] Disk-at-once recording
+
+libburn-0.3.0.1.tar.gz Tue Jan 30 2007
+===============================================================================
+* Improved recognition of unsuitable media types
+* Replaced ban of chmod u+s by loud warning
+* detailed man page for cdrskin
+* Burning of DVD+RW and DVD-RAM media as single-track TAO-like initial session
+* Formatting and then burning to DVD-RW like to DVD+RW
+* New option -msifile=path from cdrkit/wodim
+* 0.3.0.1 release notes *
+* Bug fix enabling tracks >= 1.3 GB from disk file
+
+libburn-0.2.6.3.tar.gz Fri Dec 29 2006
+===============================================================================
+* 0.2.6 release notes (Wed Nov 22 2006) 
+* After a lot of time with dedication to this project, we proudly present you
+  libburn 0.2.6. It is the first version of cdrskin and libburn after they have
+  been split from genisofs and libisofs. Main new features are write mode TAO 
+  and support for multi session.
+* 0.2.6.1 release notes (Fri Nov 24 2006) 
+* Point release to fix misleading version numbers in messages and documentation
+* 0.2.6.2 release notes (Sat Dec 16 2006) 
+* cdrskin man page backported from development version 0.2.7.
+* 0.2.6.3 release notes (Fri Dec 29 2006) 
+* Point release to fix build system problems people have experienced with the
+  past release.
+
+libburn-0.2.3.snapshot02.tar.gz Thu Nov 02 2006
+===============================================================================
+* Stabilized snapshot including release 0.2.4.pl01 of cdrskin
+* cdrskin 0.2.4 release notes 
+* Compatibility with cdrecord has been improved in respect to drive addresses,
+  audio extraction from .wav, -scanbus, -toc, drive buffer fill indicator.
+* Note: The previous snapshot01 with the same source base is handicapped by a
+  broken ./configure setup. It works well on Intel compatible CPUs but is
+  supposed to be unusable on big-endian architectures.
+
+libburn-0.2.2.tar.gz Wed Sep 20 2006
+===============================================================================
+Initial release of libburnia's libburn combined with cdrskin.

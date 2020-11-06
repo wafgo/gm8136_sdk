@@ -1,0 +1,594 @@
+------------------------------------------------------------------------------
+     libburnia-project.org     scdbackup.sourceforge.net/cdrskin_eng.html
+------------------------------------------------------------------------------
+cdrskin. By Thomas Schmitt <scdbackup@gmx.net>
+Integrated sub project of libburnia-project.org but also published via:
+http://scdbackup.sourceforge.net/cdrskin_eng.html
+http://scdbackup.sourceforge.net/cdrskin-1.3.2.pl01.tar.gz
+
+Copyright (C) 2006-2013 Thomas Schmitt, provided under GPL version 2 or later.
+------------------------------------------------------------------------------
+
+
+cdrskin is a limited cdrecord compatibility wrapper which allows to use
+most of the libburn features from the command line.
+
+Currently it is supported on GNU/Linux with kernels >= 2.4,
+on FreeBSD and on OpenSolaris.
+IDE drives under Linux 2.4. need kernel module ide-scsi.
+ATA and SATA drives under FreeBSD need kernel module atapicam.
+On other X/Open compliant systems there will only be emulated drives, but no
+direct MMC operation on real CD/DVD/BD drives.
+
+By using this software you agree to the disclaimer at the end of this text
+"This software is provided as is. There is no warranty implied and ..."
+
+
+                   Compilation, First Glimpse, Installation
+
+Obtain cdrskin-1.3.2.pl01.tar.gz, take it to a directory of your choice and do:
+
+    tar xzf cdrskin-1.3.2.pl01.tar.gz
+    cd cdrskin-1.3.2
+
+Within that directory execute:
+
+    ./configure --prefix=/usr
+    make
+
+This will already produce a cdrskin binary. But it will be necessary to
+install libburn in order to use this binary.
+
+In order to surely get a standalone binary, execute
+
+    cdrskin/compile_cdrskin.sh
+
+Version identification and help texts available afterwards:
+    cdrskin/cdrskin -version
+    cdrskin/cdrskin --help
+    cdrskin/cdrskin -help
+    man cdrskin/cdrskin.1
+
+
+Install (eventually as superuser) cdrskin to a directory where it can be found:
+The command for global installation of both, libburn and cdrskin is
+    make install
+If the library libburn.so.4 is not found with a test run of cdrskin, then
+try whether command
+    ldconfig
+makes it accessible. With the statically linked binary this should not matter.
+
+With that static binary you may as well do the few necessary actions manually.
+If cdrskin was already installed by a previous version, or by "make install"
+in the course of this installation, then find out where:
+    which cdrskin 
+Copy your standalone binary to exactly the address which you get as reply.
+E.g.:
+
+    cp cdrskin/cdrskin /usr/bin/cdrskin
+
+Check the version timestamps of the globally installed binary
+    cdrskin -version
+
+It is not necessary for the standalone cdrskin binary to have libburn
+installed, since it incorporates the necessary libburn parts at compile time.
+It will not collide with an installed version of libburn either.
+But libpthread must be installed on the system and glibc has to match. (See
+below for a way to create a totally static linked binary.)
+
+To install the man page, you may do: echo $MANPATH and choose one of the
+listed directories to copy the man-page under its ./man1 directory. Like:
+    cp cdrskin/cdrskin.1 /usr/share/man/man1/cdrskin.1
+
+Note: The content of the cdrskin tarball is essentially the complete libburn
+      of the same version number. You may thus perform above steps in a local
+      SVN copy of libburn or in a unpacked libburn tarball as well.
+
+
+                                    Usage
+
+The user of cdrskin needs rw-permission for the CD burner device.
+A list of rw-accessible drives can be obtained by
+
+    cdrskin --devices
+
+CD devices which offer no rw-permission are invisible to normal users.
+The superuser should be able to see any usable drive and then set the
+permissions as needed. If this hangs then there is a drive with
+unexpected problems (locked, busy, broken, whatever). You might have to
+guess the address of your (non-broken) burner by other means, then.
+On Linux 2.4 this would be some /dev/sgN and on 2.6. some /dev/srM or /dev/hdX.
+
+The output of  cdrskin --devices  might look like
+
+    0  dev='/dev/sr0'  rwrwr- :  '_NEC'  'DVD_RW ND-4570A'
+    1  dev='/dev/sr1'  rwrw-- :  'HL-DT-ST'  'DVDRAM GSA-4082B'
+
+On Linux, full and insecure enabling of both for everybody would look like
+    chmod a+rw /dev/sr0 /dev/hda
+This is equivalent to the traditional setup chmod a+x,u+s cdrecord.
+
+On FreeBSD, device permissions are to be set in /etc/devfs.rules.
+On Solaris, pfexec privileges may be restricted to "basic,sys_devices".
+See below "System Dependend Drive Permission Examples".
+
+I strongly discourage to run cdrskin with setuid root or via sudo !
+It is not checked for the necessary degree of hacker safety.
+Better consider to grant the necessary permissions to group "floppy"
+and to add users to it.
+
+
+A behavioral conflict is known between any burn software and demons like hald
+which probe CD drives. This can spoil burn runs for CD-R or CD-RW.
+You may have to keep your hald away from the drive. See for example
+   http://www.freebsd.org/gnome/docs/halfaq.html
+
+
+Helpful with Linux kernel 2.4 is a special SCSI feature:
+It is possible to address a scsi(-emulated) drive via associated device files
+which are not listed by option --devices but point to the same SCSI addresses
+as listed device files. This addressing via e.g. /dev/sr0 or /dev/scd1 is
+compatible with generic read programs like dd and with write program growisofs.
+For finding /dev/sg1 from /dev/sr0, the program needs rw-access to both files.
+
+
+                                Usage examples 
+
+For options and recordable media classes see 
+    man 1 cdrskin
+
+Get an overview of cdrecord style addresses of available devices
+    cdrskin -scanbus 
+    cdrskin dev=ATA -scanbus 
+    cdrskin --devices
+
+Adresses reported with dev=ATA need prefix "ATA:". Address examples:
+    dev=0,1,0  dev=ATA:1,0,0  dev=/dev/sg1  dev=/dev/hdc  dev=/dev/sr0
+See also "Drive Addressing" below.
+
+Obtain some info about the drive
+    cdrskin dev=0,1,0 -checkdrive 
+
+Obtain some info about the drive and the inserted media
+    cdrskin dev=0,1,0 -atip -v -minfo
+
+Prepare CD-RW or DVD-RW for re-use, DVD-RAM or BD-RE for first use
+    cdrskin -v dev=/dev/sg1 blank=as_needed -eject
+
+Format DVD-RW to avoid need for blanking before re-use
+    cdrskin -v dev=0,1,0 blank=format_overwrite
+
+De-format DVD-RW to make it capable of multi-session again
+    cdrskin -v dev=/dev/sr0 blank=deformat_sequential
+
+Burn image file  my_image.iso  to media
+    cdrskin -v dev=0,1,0 speed=12 fs=8m driveropts=burnfree padsize=300k \
+            -eject  my_image.iso 
+
+Write multi-session to the same CD , DVD-R[W] or DVD+R[/DL]
+    cdrskin dev=/dev/hdc padsize=300k -multi 1.iso
+    cdrskin dev=/dev/hdc padsize=300k -multi 2.iso
+    cdrskin dev=/dev/hdc padsize=300k -multi 3.iso
+    cdrskin dev=/dev/hdc padsize=300k 4.iso
+
+Get multi-session info for option -C of program mkisofs:
+    c_values=$(cdrskin dev=/dev/hdc -msinfo 2>/dev/null)
+    mkisofs ... -C "$c_values" ...
+
+Burn a compressed afio archive to media on-the-fly
+    find . | afio -oZ - | cdrskin -v dev=0,1,0 fs=32m speed=8 \
+                                  driveropts=burnfree padsize=300k - 
+
+Burn 6 audio tracks from files with different formats to CD (not to any DVD).
+Anything except .wav or .au files has to be converted into raw format first.
+See below "Audio CD" for specifications.
+    ogg123 -d raw -f track01.cd /path/to/track1.ogg
+    oggdec -R -o track02.cd /path/to/track2.ogg
+    lame --decode -t /path/to/track3.mp3 track03.cd   
+    madplay -o raw:track04.cd /path/to/track4.mp3
+    mppdec --raw-le /path/to/track5.mpc track05.cd
+
+    cdrskin -v dev=0,1,0 blank=fast -eject speed=48 -sao \
+           -audio -swab track0[1-5].cd /path/to/track6.wav
+
+Extract audio tracks and CD-TEXT from CD into directory /home/me/my_cd:
+    mkdir /home/me/my_cd
+    cdrskin -v dev=/dev/sr0 extract_audio_to=/home/me/my_cd \
+            cdtext_to_v07t=/home/me/my_cd/cdtext.v07t
+
+
+                                Restrictions
+
+Several advanced CD related options of cdrecord are still unsupported.
+See output of command
+    cdrskin --list_ignored_options
+If you have use cases for them, please report your wishes and expectations.
+
+On the other hand, the capability of multi-session and of writing streams
+of unpredicted lenght surpass the current DVD capabilities of cdrecord.
+
+
+                           Inspiration and Standard
+
+cdrskin combines the command line interface standard set by cdrecord with
+libburn, which is a control software for optical drives according to standard
+MMC-5. For particular CD legacy commands, standards MMC-3 and MMC-1 apply.
+
+For the original meaning of cdrecord options see :
+    man cdrecord 
+    (http://cdrecord.berlios.de/old/private/man/cdrecord-2.0.html)
+Do not bother Joerg Schilling with any cdrskin problems.
+(Be cursed if you install cdrskin as "cdrecord" without clearly forwarding
+ this "don't bother Joerg" demand.)
+
+cdrskin does not contain any bytes copied from cdrecord's sources. Many bytes
+have been copied from the message output of cdrecord runs, though. I am
+thankful to Joerg Schilling for every single one of them.
+I have the hope that Joerg feels more flattered than annoyed by cdrskin.
+
+Many thanks to Andy Polyakov for his dvd+rw-tools
+  http://fy.chalmers.se/~appro/linux/DVD+RW/tools
+which provide me with examples and pointers into MMC specs for DVD writing.
+
+
+                                 Startup Files
+
+If not --no_rc is the first argument then cdrskin attempts on startup to read
+arguments from the following three files:
+  /etc/default/cdrskin
+  /etc/opt/cdrskin/rc
+  /etc/cdrskin/cdrskin.conf
+  $HOME/.cdrskinrc
+The files are read in the sequence given above.
+Each readable line is treated as one single argument. No extra blanks.
+A first character '#' marks a comment, empty lines are ignored.
+
+Example content of a startup file:
+# This is the default device
+dev=0,1,0
+
+# Some more options
+fifo_start_at=0
+fs=16m
+
+
+                                  Audio CD
+
+Lorenzo Taylor enabled option -audio in cdrskin (thanks !) and reports neat
+results with audio data files which are :
+  headerless PCM (i.e. uncompressed)
+  44100 Hz sampling rate 
+  16 bits per sample
+  stereo (2 channels)
+  little-endian byte order with option -swab, or big-endian without -swab
+
+Files with name extension .wav get examined wether they are in Microsoft WAVE
+format with above parameters and eventually get extracted by cdrskin itself.
+In the same way files with name extension .au get examined wether they are
+in SUN's audio format. For both formats, track format -audio and eventual
+endianness option -swab are enabled automatically.
+
+Any other formats are to be converted to format .wav with above parameters
+or to be extracted as raw CD track data by commands like those given above
+under "Usage examples". Those raw files need option -audio and in most cases 
+option -swab to mark them as little-endian/Intel/LSB-first 16-bit data.
+Incorrect endianness setting results in random noise on CD.
+
+I myself am not into audio. So libburn-hackers@pykix.org might be the
+best address for suggestions, requests and bug reports.
+
+
+                          DVD+RW , DVD-RAM , BD-RE
+
+These random access media get treated as blank media regardless wether they
+hold data or not. Options -audio and -multi are not allowed. Only one track
+is allowed. -toc does not return information about the media content.
+Speed is counted in DVD units (i.e. 1x = 1,385,000 bytes/second) or BD units
+(1x = 4,495,625 bytes/second). Currently there is no difference between -sao
+and -tao. If ever, then -tao will be the mode which preserves the current
+behavior.
+
+BD-RE media need formatting before first use. cdrskin option "blank=as_needed"
+recognizes unformatted BD-RE and applies a lengthy formatting run.
+
+During write operations DVD-RAM and BD-RE automatically apply Defect
+Management. This usually slows them down to half nominal speed. If drive
+and media produce flawless results anyway, then one can try to reach full
+nominal speed by option "stream_recording=on".
+In this case bad blocks are not detected during write and not even previously
+known bad blocks are avoided. So you have to make your own readability tests
+and go back to half speed as soon as the first read errors show up.
+Instead of "on" one may also set a start address for stream recording.
+Like "stream_recording=100m". This will write slowly to the first 100 MB of
+the media and accelerate when writing to higher addresses.
+
+Option --grow_overwriteable_iso allows -multi (although unneeded), enables
+-msinfo and -toc, and makes blank=fast an invalidator for ISO filesystems
+on overwriteable media.
+
+Initial session (equivalent to growisofs -Z): 
+  mkisofs ... | cdrskin --grow_overwriteable_iso blank=fast ...
+
+Add-on session (equivalent to growisofs -M):
+  cparms=$(cdrskin dev=/dev/sr0 --grow_overwriteable_iso -msinfo)
+  mkisofs -C "$cparms" -M /dev/sr0 ... | \
+    cdrskin dev=/dev/sr0 --grow_overwriteable_iso ... -
+
+
+                            DVD-RW , DVD-R , DVD-R DL
+
+DVD-RW are usable if formatted to state "Restricted Overwrite" or if in state
+"Sequential Recording". DVD-R are always in sequential state. DVD-R DL are
+always sequential and incapable of multi-session.
+
+"Sequential" is the state of unused media and of media previously blanked
+or written by cdrecord. dvd+rw-format -blank can also achieve this state.
+The according cdrskin option is blank=deformat_sequential .
+If "Incremental Streaming" is available, then sequential media are capable
+of multi-session like CD-R[W]. (But not capable of -audio recording.)
+This means they need option -multi to stay appendable, need to be blanked
+to be writeable from start, return useable info with -toc and -msinfo,
+eventually perform appending automatically.
+Without Incremental Streaming offered by the drive, only write mode DAO is
+available with sequential DVD-R[W]. It only works with blank media, allows only
+one single track, no -multi, and demands a fixely predicted track size.
+(growisofs uses it with DVD-R[W] if option -dvd-compat is given.)
+ 
+Overwriteable DVD-RW behave much like DVD+RW. "Restricted" refers only to the
+granularity of random access and block size which have always to be aligned to
+full 32 kB. Sequential DVD-RW are converted into overwriteable DVD-RW by
+  cdrskin dev=... -v blank=format_overwrite
+(Command  dvd+rw-format -force  can achieve Restricted Overwrite, too.)
+
+Formatting or first use of freshly formatted DVD-RW can produce unusual noises
+from the drive and last several minutes. Depending on mutual compatibility of
+drive and media, formatting can yield unusable media. It seems that those die
+too on blanking by cdrecord, dvd+rw-format or cdrskin. Perils of DVD-RW.
+
+There are three DVD-RW formatting variants with cdrskin currently:
+
+blank=format_overwrite  uses "DVD-RW Quick" formatting (MMC-type 15h)
+and writes a first session of 128 MiB. This leads to media which are expandable
+and random addressable by cdrskin.
+
+blank=format_overwrite_quickest  uses "DVD-RW Quick" formatting (type 15h) too,
+but leaves the media in "intermediate" state. In the first session of writing
+one may only write sequentially to such a DVD. After that, it gets random
+addressable by cdrskin. DVD-ROM drives might show ill behavior with them.
+
+blank=format_overwrite_full  uses preferrably "Full Format" (type 00h).
+This formatting lasts as long as writing a full DVD. It includes writing of
+lead-out which is said to be good for DVD ROM compatibility. 
+
+De-formatting options are available to make overwriteable DVD-RW sequential:
+
+blank=deformat_sequential  performs thorough blanking of all states of DVD-RW.
+blank=all and blank=fast perform the same thorough blanking, but refuse to do
+this with overwriteable DVD-RW, thus preserving their formatting. The specs
+allow minimal blanking but the resulting media on my drives offer no 
+Incremental Streaming afterwards. So blank=fast will do full blanking. 
+
+blank=deformat_sequential_quickest   is faster but might yield DAO-only media.
+
+
+                           DVD+R , DVD+R DL , BD-R
+
+From the view of cdrskin they behave much like DVD-R. Each track gets wrapped
+into an own session, though.
+
+DVD+R DL appear as extra large DVD+R. cdrskin does not allow to set the address
+of the layer break where a reading drive might show some delay while switching
+between both media layers.
+
+BD-R are sold unformatted blank. If used without initial formatting then the
+drive is supposed to format them to maximum payload size with no Defect
+Management (see also above with BD-RE).
+If Defect Management is desired then BD-R need to be formatted before the
+first attempt to write a session to them.
+blank=format_if_needed    will detect the situation and eventually apply
+                          default sized Defect Management formatting.
+blank=format_defectmgt_*  will apply non-default parameters to formatting.
+
+
+                              Emulated Drives
+
+cdrskin can use filesystem objects as emulated drives. Regular files or block
+devices appear similar to DVD-RAM. Other file types resemble blank DVD-R.
+Necessary precondition is option --allow_emulated_drives which is not accepted
+if cdrskin took another user identity because of the setuid bit of its access
+permissions.
+Addresses of emulated drives begin with prefix "stdio:". E.g.
+  dev=stdio:/tmp/my_pseudo_drive
+
+For safety reasons the superuser is only allowed to use /dev/null as emulated
+drive. See man page section FILES for a way to lift that ban.
+
+
+------------------------------------------------------------------------------
+
+                        Special compilation variations
+
+All following options of ./configure and cdrskin/compile_cdrskin.sh are
+combinable. After runs of ./configure do as next:
+    make clean ; make
+
+In some situations Linux may deliver a better write performance to drives if
+the track input is read with O_DIRECT (see man 2 open). The API call
+burn_os_open_track_src() and the input readers of cdrskin and libburn fifo
+can be told to use this peculiar read mode by:
+    --enable-track-src-odirect
+
+But often cdrskin option dvd_obs=64k will yield even better performance in
+such a situation. 64k can be made default at compile time by 
+    cdrskin/compile_cdrskin.sh -dvd_obs_64k
+It can also be enabled at configure time by
+    ./configure ... --enable-dvd-obs-64k ...
+
+Alternatively the transport of SCSI commands can be done via libcdio-0.83.
+You may install it and re-run libburn's ./configure with option
+    --enable-libcdio
+
+You may get a (super fat) statically linked binary by :
+    cdrskin/compile_cdrskin.sh -static
+if your system supports static linking, at all. This will not help with kernels
+which do not properly support the necessary low-level interfaces chosen by
+your compile-time libraries.
+
+A size reduced but fully functional binary may be produced by 
+    cdrskin/compile_cdrskin.sh -do_strip
+
+An extra lean binary with reduced capabilities is created by
+    cdrskin/compile_cdrskin.sh -do_diet -do_strip
+It will not read startup files, will abort on option  dev_translation= ,
+will not have a fifo buffer, and will not be able to put out help texts or
+debugging messages.
+
+
+Linux only:
+
+libburn tries to avoid a collision with udev's drive examination by waiting
+0.1 seconds before opening the device file for a longer time, after udev
+might have been alarmed by drive scanning activities.
+The waiting time can be set at ./configure time with microsecond granularity.
+E.g. 2 seconds:
+  CFLAGS="$CFLAGS -DLibburn_udev_wait_useC=2000000"
+  ./configure ...options...
+Waiting can be disabled by zero waiting time:
+  CFLAGS="$CFLAGS -DLibburn_udev_wait_useC=0"
+Alternatively, libburn can try to be nice by opening the device file,
+closing it immediately, waiting, and only then opening it for real:
+  CFLAGS="$CFLAGS -DLibburn_udev_extra_open_cyclE -DLibburn_udev_wait_useC=500000"
+
+------------------------------------------------------------------------------
+
+                  System Dependend Drive Permission Examples
+
+Accessing the optical drives requires privileges which usually are granted
+only to the superuser. Linux, FreeBSD and Solaris offer quite different
+approaches for avoiding the need for unrestricted privileges.
+
+First check whether some friendly system setting already allows you to
+access the drives as normal user:
+  cdrskin --devices
+Those drives of which you see address and type strings are already usable.
+
+If there remain drives invisible which the superuser can see by the same
+command, then the following examples might help:
+
+--------------------- 
+On all three systems:
+--------------------- 
+Add the authorized users of CD drives to group "floppy" in /etc/group.
+If missing: create this group.
+Changes to /etc/group often only affect new login sessions. So log out and in
+before making the first tests.
+
+---------
+On Linux:
+---------
+Allow rw-access to the drives
+  chgrp floppy /dev/sr0 /dev/sr1
+  chmod g+rw   /dev/sr0 /dev/sr1
+It might be necessary to perform chgrp and chmod after each reboot or to
+edit distro dependent device configuration files for permanent settings.
+
+-----------
+On FreeBSD:
+-----------
+Edit /etc/devfs.rules and make sure to have these lines
+  [localrules=10]
+  add path 'acd*' mode 0664 group floppy
+  add path 'cd*' mode 0664 group floppy
+  add path 'pass*' mode 0664 group floppy
+  add path 'xpt*' mode 0664 group floppy
+  [localrules=5]
+  add path 'pass*' mode 0664 group floppy
+  add path 'cd*' mode 0664 group floppy
+  add path 'xpt*' mode 0664 group floppy
+  add path 'acd*' mode 0664 group floppy
+
+Edit /etc/rc.conf and add the following line if missing
+  devfs_system_ruleset="localrules"
+
+This gets into effect by reboot or by command
+  /etc/rc.d/devfs start
+
+-----------
+On Solaris:
+-----------
+Run cdrskin by
+  pfexec cdrskin ...arguments...
+
+The following settings will make pfexec keep original UID and EUID and prevent
+most superuser powers. Be aware that you still can manipulate all device files
+if you have the file permissions for that.
+Full root privileges for cdrskin can then be aquired only by command su.
+
+Edit /etc/security/exec_attr and add this line to the other "Media Backup"
+lines:
+  Media Backup:solaris:cmd:::/usr/local/bin/cdrskin:privs=basic,sys_devices
+Edit /etc/user_attr and add profile "Media Backup" to the user's line:
+  thomas::::profiles=Media Backup,Primary Administrator;roles=root
+See also man privileges, man exec_attr, man user_attr.
+
+Then allow the group r-access to the drives
+  pfexec chgrp floppy /dev/rdsk/c3t0d0s2 /dev/rdsk/c4t0d0s2
+  pfexec chmod g+r    /dev/rdsk/c3t0d0s2 /dev/rdsk/c4t0d0s2
+The last two commands have to be executed after each boot. I do not know
+the relevant device configuration files yet.
+
+
+------------------------------------------------------------------------------
+                      Project aspects and legal stuff
+------------------------------------------------------------------------------
+
+Important Disclaimer :
+
+This software is provided as is. There is no warranty implied and no
+protection against possible damages. You use this on your own risk.
+Don't blame me or other authors of libburn if anything goes wrong.
+
+Actually, in case of severe trouble, nearly always the drive and the media
+are the cause. Any mistake of the burn program is supposed to be caught
+by the drive's firmware and to lead to mere misburns.
+The worst mishaps which hit the author imposed the need to reboot the
+system because of drives gnawing endlessly on ill media. Permanent hardware
+damage did not occur in 3.5 years of development. But one never knows ...
+
+------------------------------------------------------------------------------
+
+Interested users are invited to participate in the development of cdrskin.
+Contact: scdbackup@gmx.net or libburn-hackers@pykix.org .
+We will keep copyright narrow but will of course acknowledge valuable
+contributions in a due way.
+
+------------------------------------------------------------------------------
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License version 2 or later
+    as published by the Free Software Foundation.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+------------------------------------------------------------------------------
+Based on and sub project of:
+libburnia-project.org
+By Mario Danic <mario.danic@gmail.com> and Thomas Schmitt <scdbackup@gmx.net>
+Copyright (C) 2006-2013 Mario Danic, Thomas Schmitt
+
+libburnia-project.org is inspired by and in other components still containing
+parts of
+Libburn. By Derek Foreman <derek@signalmarketing.com> and
+            Ben Jansens <xor@orodu.net>
+Copyright (C) 2002-2006  Derek Foreman and Ben Jansens
+See toplevel README for an overview of the current copyright situation in
+libburnia-project.org.
+
+

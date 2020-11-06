@@ -1,0 +1,36 @@
+############################################################
+#
+# SCALER300 Platform Parameter for GM8210
+#
+# This config file is hardware independent, don't modify it.
+#
+# LLI_MEMORY = 4096*64/8
+# LLI_MAX_CMD = 4096*64/64      --> 1 command = 64 bits
+# LLI_MAX_BLK = 4096/32         --> 1 BLOCK = 32 commands, block 128 for dummy job
+# PARAM_MEMORY_LEN = 0x3C0
+# TOTAL_RESOLUTION = 4096
+# DUMMY_BASE = 0x7F00
+# MAX_NODES_PER_CHAIN = 24      --> multiple node with different src address, max nodes in 1 chain list to hardware level is 24 nodes
+#                                   24(nodes) * 2(1 nodes need max 2 jobs to HW) = 48(jobs) * 2(1 job need 2 block in this case) = 96 blocks < 127 blocks
+# MAX_PATH_PER_CHAIN = 96       --> multiple node with same src address, max nodes in 1 chain list to hardware level is 96 nodes
+#                                   96(nodes) / 4(4 output resolution in 1 job) = 24(jobs) * 4(1 job need max 4 blocks in this case) = 96 blocks < 127 blocks
+############################################################
+PLATFORM_ENGINE_NUM = 2
+PLATFORM_LLI_MEMORY = 0x8000
+PLATFORM_LLI_MAX_CMD = 4096
+PLATFORM_LLI_MAX_BLK = 128-1
+PLATFORM_PARAM_MEMORY_LEN = 0x3c0
+PLATFORM_TOTAL_RESOLUTION = 4096
+PLATFORM_MAX_RESOLUTION = 4096
+PLATFORM_DUMMY_BASE = 0x7f00
+PLATFORM_PALETTE_MAX = 16
+PLATFORM_MAX_NODES_PER_CHAIN = 24
+PLATFORM_MAX_PATH_PER_CHAIN = 96
+PLATFORM_SRAM_BLK = 4
+PLATFORM_GM8210 = 1
+PLATFORM_GM8287 = 0
+PLATFORM_GM8139 = 0
+PLATFORM_BLK_MAX = 4
+PLATFORM_MAX_CHAIN_JOB = 50
+PLATFORM_MAX_CHAIN_LL_BLK = 96
+

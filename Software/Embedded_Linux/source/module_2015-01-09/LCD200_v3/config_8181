@@ -1,0 +1,125 @@
+LCD210 = Y
+#################################################
+#
+# Embedded debug message in driver.
+#
+#################################################
+DEBUG_MESSAGE = Y
+
+#################################################
+#
+#  Build the feature of Simple OSD in driver.
+#
+#################################################
+SIMPLE_OSD = Y
+
+#################################################
+#
+#  Use frammap to get memory.
+#
+#################################################
+
+FB0_USE_RAMMAP = Y
+FB1_USE_RAMMAP = Y
+FB2_USE_RAMMAP = Y
+
+############################################################
+#
+# Set the default output for PIP device
+# TV:  0: SA7121/DAC, 1:CS4954,
+# LCD: 3:PVI_2003A 4:FS_453
+# HDTV:5:MDIN200
+# SDTV:6:MDIN200
+# LCD: 8:1024x768 VGA DAC
+# LCD: 9:1280x800 VGA DAC
+# LCD: 10:1280x960 VGA DAC
+# LCD: 13:1280x1024 VGA DAC
+# LCD: 14:1360x768 VGA DAC
+# HDMI: 20:D1(480P/576P)
+# HDMI: 22:1280x720P
+# HDMI: 23:1920x1080I
+###########################################################
+PIP_OUTPUT_TYPE = 0
+
+############################################################
+#
+# Set the input resolution
+# 0: D1
+# 1: 640x480
+# 2: 800x600
+# 3: 1024x768
+# 4: 1440x1080
+#
+###########################################################
+
+
+################################################################
+#
+# Set default number of each frame buffer for PIP device
+# If you want to disable frame buffer, you can set number to 0.
+# You must disable frame buffer from FB2 to FB1.
+#
+###############################################################
+PIP_FB0_NUM = 1
+PIP_FB1_NUM = 1
+PIP_FB2_NUM = 0
+
+###########################################################
+#
+# frame buffer default color format for each frame buffer
+#
+# 0: YUV422, 
+#16: ARGB, 
+#17: RGB888, 
+#18: RGB565
+#21: RGB8
+#
+###########################################################
+PIP_FB0_DEF_MODE = 0
+PIP_FB1_DEF_MODE = 18
+PIP_FB2_DEF_MODE = 18
+
+###########################################################
+#
+# frame buffer color format support for each frame buffer
+#
+###########################################################
+PIP_FB0_SUPPORT_YUV422 = Y
+PIP_FB0_SUPPORT_ARGB   = N
+PIP_FB0_SUPPORT_RGB888 = N
+PIP_FB0_SUPPORT_RGB565 = Y
+PIP_FB0_SUPPORT_RGB8   = Y
+
+PIP_FB1_SUPPORT_YUV422 = Y
+PIP_FB1_SUPPORT_ARGB   = N
+PIP_FB1_SUPPORT_RGB888 = N
+PIP_FB1_SUPPORT_RGB565 = Y
+PIP_FB1_SUPPORT_RGB8   = Y
+
+PIP_FB2_SUPPORT_YUV422 = Y
+PIP_FB2_SUPPORT_ARGB   = N
+PIP_FB2_SUPPORT_RGB888 = N
+PIP_FB2_SUPPORT_RGB565 = Y
+PIP_FB2_SUPPORT_RGB8   = Y
+
+###########################################################
+#
+# frame buffer support TV VBI. 
+#                              
+###########################################################
+CCIR_SUPPORT_VBI = N
+
+###########################################################
+#
+# D1 width is 704. 
+#                              
+###########################################################
+D1_WIDTH_704 = N
+
+###########################################################
+#
+# 32x32 CURSOR
+# 
+###########################################################
+CURSOR_32x32 = Y
+

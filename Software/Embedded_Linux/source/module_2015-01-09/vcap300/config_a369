@@ -1,0 +1,95 @@
+############################################################
+#
+# VCAP300 Platform Parameter for A369
+#
+# This config file is hardware independent, don't modify it.
+#
+############################################################
+PLAT_VI_MAX = 8
+PLAT_CASCADE_MAX = 1
+PLAT_MASK_WIN_MAX = 8
+PLAT_OSD_WIN_MAX = 8
+PLAT_MARK_WIN_MAX = 4
+PLAT_SCALER_MAX = 4
+PLAT_SCALER0_SCALING = Y
+PLAT_SCALER1_SCALING = Y
+PLAT_SCALER2_SCALING = Y
+PLAT_SCALER3_SCALING = N
+PLAT_SPLIT = Y
+PLAT_SHARPNESS = Y
+PLAT_DENOISE = Y
+PLAT_FCS = Y
+PLAT_SCALER_FRAME_RATE_CTRL = N
+PLAT_SCALER_FRAME_RATE_CTRL_VER = 1
+PLAT_CH_MODE_SEL = Y
+PLAT_SYNC_CLK_SEL = Y
+PLAT_RGB2YUV = Y
+PLAT_MASK_WIN_HOLLOW = Y
+PLAT_VI_BT601 = N
+PLAT_CASCADE_ISP = N
+PLAT_CASCADE_SDI8BIT = N
+PLAT_OSD_TC_SWAP = N
+PLAT_TC_X_ALIGN = 4
+PLAT_OSD_FRAME_MODE = N
+PLAT_OSD_EDGE_SMOOTH = N
+PLAT_OSD_COLOR_SCHEME = N
+PLAT_OSD_BORDER_PIXEL = 4
+PLAT_REAL_TIME_CH = N
+
+############################################################
+#
+# VCAP300 Parameter Memory
+#
+# PARAM_MEM_SIZE: 2048x64(bits) => 16384 Byte
+############################################################
+PLAT_PARAM_MEM_SIZE = 16384
+
+############################################################
+#
+# VCAP300 Internal Memory
+#
+# OSD_SRAM : 4608x64 bits => 36864 Bytes
+# DISP_SRAM: 8192x8  bits => 8192x64(bits/unit) = 65536 Bytes
+# MARK_SRAM: 2048x64 bits => 16384 Bytes
+# LLI_SRAM : 4096x64 bits => 32768 Bytes
+############################################################
+PLAT_OSD_SRAM_SIZE = 27648
+PLAT_DISP_SRAM_SIZE = 65536
+PLAT_MARK_SRAM_SIZE = 16384
+PLAT_LLI_SRAM_SIZE = 32768
+
+############################################################
+#
+# VCAP300 OSD
+#
+# OSD_PIXEL_BITS	  : 4 (bits/pixel)
+# OSD_CHAR_NUM  	  : (4608x48)/(12(col) x 18(row) x 4(bits)) => 256
+# OSD_DISP_NUM  	  : (8192x8)/8(bits/font)                   => 8192
+# OSD_PALETTE_CHAR_NUM: 4
+############################################################
+PLAT_OSD_PIXEL_BITS = 4
+PLAT_OSD_CHAR_NUM = 256
+PLAT_OSD_DISP_NUM = 8192
+PLAT_OSD_PALETTE_CHAR_NUM = 4
+
+############################################################
+#
+# VCAP300 Scaler
+#
+# LINE_BUF_NUM  : 24
+# LINE_BUF_WIDTH: 720 (Pixel)
+# LINE_BUF_SIZE : 24x720x2 => 34560 Byte = 4320(64 bits)
+# HORIZ_SIZE    : 4096 (Pixel)
+############################################################
+PLAT_SCALER_LINE_BUF_NUM = 24
+PLAT_SCALER_LINE_BUF_WIDTH = 720
+PLAT_SCALER_LINE_BUF_SIZE = 34560
+PLAT_SCALER_HORIZ_SIZE = 4960
+
+############################################################
+#
+# VCAP300 MD
+#
+############################################################
+PLAT_MD_GROUPING = Y
+PLAT_MD_GROUP_CH_MAX = 4

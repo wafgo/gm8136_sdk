@@ -1,0 +1,27 @@
+iaccess provide the capability of reading and writing I2C messages by standard
+Linux way. You can check its brief usage by typing:
+
+$i2c_access --help
+
+There are four usages:
+1. i2c_access I2C_ADDR w [B][B]...[B][B] r [B]
+2. i2c_access nostop I2C_ADDR w [B][B]...[B][B] r [B]
+3. i2c_access I2C_ADDR w [B][B]...[B][B]
+4. i2c_access I2C_ADDR r [B]
+
+I2c_ADDR: the I2C address of the specific device you want to talk, 7bits format
+nostop:   the first method will insert a stop between write cmd and read cmd, nostop won't
+r/w:      specify r, w to read or write the following data byte
+[B]:      when writing, this means 8 bits data byte,
+          when reading, this means the number of byte will be read
+
+Take RTC-PT7C4307 for example, its i2c address is 0x68 in 7bit-format. We want 
+to get the "second" infomation it provides, which is stored in its register with 
+address offset 0x00. We can type as following:
+
+$i2c_access 0x68 w 0x00 r 0x01
+
+Then you will get something like:
+read: 0x02
+
+If you have any problem encountered, please contact with us.

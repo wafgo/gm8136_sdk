@@ -1,0 +1,43 @@
+CROSS_COMPILE=arm-linux-
+AS	=$(CROSS_COMPILE)as
+LD	=$(CROSS_COMPILE)ld
+CC	=$(CROSS_COMPILE)gcc
+CPP	=$(CC) -E
+AR	=$(CROSS_COMPILE)ar
+NM	=$(CROSS_COMPILE)nm
+STRIP	=$(CROSS_COMPILE)strip
+OBJCOPY =$(CROSS_COMPILE)objcopy
+OBJDUMP =$(CROSS_COMPILE)objdump
+RANLIB	=$(CROSS_COMPILE)ranlib
+
+PWD := $(shell pwd)
+
+DEPFLAGS=-MMD
+
+CFLAGS = -O2 -Wall $(DEPFLAGS)
+CFLAGS += -I$(PWD)/../../module/sw_dbg
+LDFLAGS = -lpthread
+LIBS =
+
+PROGS = sw_dbg
+
+all:: $(PROGS)
+
+%: %.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@$(NM) -n $@ | grep -v '\( [aUw] \)\|\(__crc_\)\|\( \$[adt]\)' > $@.map
+	@$(STRIP) $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+sw_dbg: sw_dbg.o config.o
+
+clean:
+	@rm -f $(PROGS)
+	@find . \( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' -o -name '*~' \
+	-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' -o -name '*.d' -o -name '*.map' \) \
+	-type f -print | xargs rm -f
+
+# Include dependancies
+-include *.d

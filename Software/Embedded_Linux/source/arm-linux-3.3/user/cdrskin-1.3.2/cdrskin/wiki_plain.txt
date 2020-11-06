@@ -1,0 +1,302 @@
+--------------------------------------------------------------------------
+                       cdrskin Wiki - plain text copy
+--------------------------------------------------------------------------
+[[Image(source:/libburn/trunk/cdrskin/doener_150x200_tr.png)]] [http://en.wikipedia.org/wiki/D%C3%B6ner_kebab Doener]
+
+'''cdrskin is the cdrecord compatibility middleware of libburn.'''
+
+Its paragon, cdrecord, is a powerful GPL'ed burn program included in Joerg
+Schilling's cdrtools. cdrskin strives to be a second source for the services
+traditionally provided by cdrecord. Currently it does CD-R and CD-RW this way.
+Overwriteable media DVD-RAM, DVD+RW, DVD-RW, and BD-RE are handled differently
+than with cdrecord-ProDVD in order to offer TAO-like single track recording.
+Sequential DVD-R[W], DVD+R, DVD+R DL, BD-R are handled like CD-R[W] with TAO
+and multi-session. Additionally cdrskin offers cdrecord-ProDVD-like mode DAO
+with DVD-R[W].
+
+cdrskin does not contain any bytes copied from cdrecord's sources.
+Many bytes have been copied from the message output of cdrecord
+runs, though. The most comprehensive technical overview of cdrskin
+can be found in [http://libburnia-project.org/browser/libburn/trunk/cdrskin/README?format=txt cdrskin/README].
+
+About libburn API for burning CD, DVD, and BD: http://api.libburnia-project.org
+
+--------------------------------------------------------------------------
+
+For yet unsupported media types see the advice to use dvd+rw-tools at
+the end of this text.
+
+--------------------------------------------------------------------------
+
+About the command line options of cdrskin:
+
+They are described in detail in [http://scdbackup.sourceforge.net/man_1_cdrskin_devel.html#OPTIONS section OPTIONS] of
+[http://scdbackup.sourceforge.net/man_1_cdrskin_devel.html man cdrskin]
+
+There are two families of options: cdrecord-compatible ones and options
+which are specific to cdrskin. The latter are mostly used to configure
+cdrskin for its task to emulate cdrecord. There are some, nevertheless,
+which provide rather exotic unique features of cdrskin.
+
+The cdrecord-compatible options are listed in the output of
+{{{
+cdrskin -help
+}}}
+where the option "help" has *one* dash. Online: [http://scdbackup.sourceforge.net/cdrskin_help_devel cdrskin -help]
+
+For these options you may expect program behavior that is roughly the
+same as described in original  man cdrecord . 
+
+Online: http://cdrecord.berlios.de/old/private/man/cdrecord-2.0.html
+
+The cdrskin-specific options are listed by
+{{{
+cdrskin --help
+}}}
+where the option "help" has *two* dashes. Online: [http://scdbackup.sourceforge.net/cdrskin__help_devel cdrskin --help]
+
+Some are very experimental and should only be
+used in coordination with the libburnia developer team.
+Some are of general user interest, though:
+
+--------------------------------------------------------------------------
+
+--devices allows the sysadmin to scan the system for possible drives
+and displays their detected properties.
+The drives are listed one per line, with fields:
+libburn-drive-number, sysadmin-device-file, permissions, vendor, type
+{{{
+0  dev='/dev/sr0'  rwrw-- :  'HL-DT-ST'  'DVDRAM GSA-4082B'
+}}}
+This feature is valuable since cdrskin -scanbus will not give you
+the device file name and its current permissions.
+cdrskin will accept of course the proposed dev= option as address
+for any usage of the drive.
+
+Different from cdrecord, cdrskin is intended to be run without special
+privileges, i.e. no superuser setuid. It is intended that the sysadmin
+controls drive accessability by rw-permissions of the drive rather than
+by x-permission of the burn binary. To be usable with cdrskin, the drive
+has to offer both, r- and w-permission.
+
+--------------------------------------------------------------------------
+
+blank=as_needed applies the suitable blanking or formatting to make
+any supported type of media ready for writing from scratch.
+If this is not possible, e.g. because the media is written and not
+re-usable, then the program run fails.
+
+Option blank= offers several specialized blanking and formatting types,
+which one may use for particular purposes on DVD-RW, DVD-RAM and BD-RE.
+(See also below: blank=format_overwrite)
+The drive offers a list of possible formats by cdrskin option --list_formats.
+One should aquire MMC background information before making use of them.
+
+--------------------------------------------------------------------------
+
+cdrskin does not only read from and write to optical drives which comply
+to the MMC standard but also does the same with regular files or block
+devices other than optical drives.
+
+Because the power to alter a disk file might be a bad surprise for a
+traditional user of cdrecord, it is necessary to give option
+--allow_emulated_drives before an emulated drive may be addressed.
+Eventually one of the startup files would be a good place for it.
+See man page, section FILES.
+
+The addresses of emulated drives begin with the prefix "stdio:".
+{{{
+dev=stdio:/tmp/pseudo_drive
+dev=stdio:/dev/usbstick
+}}}
+
+Regular files and block devices behave much like DVD-RAM.
+  
+Other file types may be valid targets for write-only operations.
+This includes standard output, named pipes, character devices
+{{{
+dev=stdio:/dev/fd/1
+dev=stdio:/tmp/named_pipe
+dev=stdio:/dev/ptyxy
+}}}
+
+These files behave much like blank DVD-R.
+
+All files used as pseudo-drives have to offer rw-permission.
+
+
+--------------------------------------------------------------------------
+
+The DVD capabilities of cdrskin differ from those of cdrecord-ProDVD. cdrskin
+offers TAO-like multi-session with DVD-R[W], DVD+R[ DL] and TAO-like single
+session with overwriteable DVD media. It also offers DAO on DVD-R[W] which is
+probably the same as the traditional cdrecord-ProDVD write mode.
+
+Non-cdrecord blank mode blank=format_overwrite brings a DVD-RW
+disc from its initial profile "Sequential Recording" into profile state
+"Restricted Overwrite".
+{{{
+cdrskin dev=/dev/sr0 -v blank=format_overwrite
+}}}
+
+DVD-RAM, DVD+RW, BD-RE and overwriteable DVD-RW appear to cdrskin as blank
+media which are capable of taking only a single track. This track may be
+positioned on a 32KiB aligned address, though.
+{{{
+cdrskin ... write_start_address=2412m ...
+}}}
+
+Non-cdrecord blank mode blank=deformat_sequential brings an overwriteable
+DVD-RW back into state "Sequential Recording" with the capability of doing
+multi-session, if the drive is capable of "Incremental Streaming"
+(MMC feature 21h).
+
+Used sequential DVD-RW media may be blanked by blank=fast or blank=all which
+normally both do full blanking. Thus sequential DVD-RW behave much like large
+CD-RW with possibly more than 99 tracks.
+  
+blank=deformat_sequential does minimal blanking of DVD-RW which usually yields
+media incapable of "Incremental Streaming".
+
+Option --prodvd_cli_compatible activates blank=fast and blank=all for
+overwriteable DVD-RW which normally ignore those two options. It also makes
+option -multi tolerable with media and write modes which are not suitable for
+multi-session. (The default behavior of cdrskin deems me to be preferrable.)
+
+Option --grow_overwriteable_iso gives cdrskin ISO pseudo-multi-session
+capabilities on DVD-RAM, DVD+RW, BD-RE similar to growisofs.
+Associated options blank=, -multi, -msinfo and -toc are available in this case.
+They either pretend a blank media (if there is no ISO 9660 image) or appendable
+media with a single session and track on it. blank= invalidates ISO images.
+
+
+--------------------------------------------------------------------------
+
+assert_write_lba=<lba> allows to ensure that the start block address which
+was used with the formatter program (e.g. mkisofs -C) matches the start block
+address which will be used by the upcoming burn.
+
+E.g. cdrskin aborts with an error message if 
+{{{
+assert_write_lba=0
+}}}
+is given but an appendable media is to be burned which would start at
+block 68432.
+
+
+An ISO-9660 file system image must be prepared according to a particular
+block address on media. If the prepared address and the real address on media
+do not match then the filesystem will not be mountable or may even cause system
+trouble.
+
+A sequential archive format like afio or star will not necessarily need such
+a coordination of addresses. It might nevertheless be confusing to a reader
+if the archive does not start at block 0.
+
+--------------------------------------------------------------------------
+
+fifo_start_at=<num> is a throughput enhancer for unsteady data streams
+like they are produced by a compressing archiver program when piping to
+CD on-the-fly. It makes better use of the general property of a FIFO 
+buffer to transport surplus bandwidth into the future. Yep. A time machine.
+One-way, i fear.
+
+FIFO originally was introduced by cdrecord's author Joerg Schilling in order
+to protect mediocre burner hardware from suffering buffer underruns
+and thus producing misburns (at 1x speed on CD-R media at the price of a
+DVD-RAM nowadays). This purpose would not justify a fifo any more -
+given the limited life time of burners and the seamless underrun protection
+of contemporary consumer drives.
+
+With an unsteady data stream the task of the buffer is to soak up peak 
+performance and to release it steadily at the drive's maximum speed.
+The larger the buffer the more reserves can be built up and the longer
+input drought can be compensated.
+
+Original cdrecord has the historical property, though, to first wait until
+the buffer is completely filled. Best practice for fighting drive
+underruns, of course.
+With a very fat fs=# buffer (128 MB for 12x CD is not unrealistic) this
+can cause a big delay until burning finally starts and takes its due time.
+
+fifo_start_at=<num> makes cdrskin start burning after the given number of bytes
+is read rather than waiting for the FIFO to be completely full resp. the data
+stream to end. It risks a few drive buffer underruns at the beginning of burn
+- but modern drives stand this.
+
+Usage examples:
+{{{
+cdrskin ...  fs=128m  fifo_start_at=20m  ...
+cdrskin ...  fifo_start_at=0  ...
+}}}
+
+Note: no FIFO can give you better average throughput than the average
+throughput of the data source and the throughput of the burner.
+It can be used, though, to bring the effective throughput very close
+to the theoretical limit. Especially with high speed media.
+
+--------------------------------------------------------------------------
+
+--no_rc allows you to surely ban influence from systemwide or user specific
+default settings of cdrskin. Possible locations for such settings:
+
+/etc/default/cdrskin
+
+/etc/opt/cdrskin/rc
+
+/etc/cdrskin/cdrskin.conf
+
+$HOME/.cdrskinrc
+
+--------------------------------------------------------------------------
+
+dev_translation=<sep><from><sep><to> may be needed to foist cdrskin to
+frontend programs of cdrecord which do *not* ask cdrecord -scanbus but
+which make own assumptions and guesses about cdrecord's device addresses.
+
+Normally, cdrskin understands all addresses which are suitable for cdrecord
+under Linux. See cdrskin/README, "Pseudo-SCSI Adresses".
+This option is mainly for (yet unknown) exotic configurations or very
+stubborn frontend programs.
+
+If a frontend refuses to work with cdrskin, look into the error protocol
+of that frontend, look at the output of a run of cdrskin --devices and give
+cdrskin the necessary hint.
+Example: Your frontend insists in using "0,0,0" and --devices reported 
+dev='/dev/hdc' resp. cdrskin dev=ATA -scanbus reported "1,0,0" then this
+would be the appropriate translation:
+{{{
+dev_translation=+0,0,0+/dev/hdc
+}}}
+The "+" character is a separator to be choosen by you.
+Currently i am not aware of the need to choose any other than "+"
+unless you get playful with custom translations like
+{{{
+dev_translation=-"cd+dvd"-1,0,0
+}}}
+See http://scdbackup.sourceforge.net/k3b_on_cdrskin.html
+for an illustrated example with K3b 0.10 .
+
+--------------------------------------------------------------------------
+
+Advanced multi-session use cases as of dvd+rw-tools:
+
+A special feature of dvd+rw-tools is growing of ISO-9660 filesystems on
+overwriteable media. This is not the same as multi-session writing of cdrskin
+with CD media, but retrieves additional information from the existing ISO
+image and finally manipulates the start sectors of this existing image.
+
+So, inspired by growisofs, cdrskin can offer DVD multi-session not only with
+sequential DVD-R[W] and with DVD+R [DL], but also with DVD-RAM, DVD+RW, BD-RE
+and even regular disk files or block devices other than CD/DVD writers.
+This is enabled by option --grow_overwriteable_iso.
+
+The libburnia project provides an integrated ISO-9660 multi-session tool
+named [wiki:Xorriso xorriso] which tries to go one step beyond
+growisofs. It uses  [wiki:Libburn libburn] , [wiki:Libisofs libisofs]
+and [wiki:Libisoburn libisoburn].
+
+See [http://scdbackup.sourceforge.net/man_1_xorriso.html man xorriso].
+
+--------------------------------------------------------------------------
+

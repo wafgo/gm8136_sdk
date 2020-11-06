@@ -1,0 +1,13 @@
+#!/bin/bash
+make clean
+find . \( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' -o -name '*~' \
+	-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \) \
+	-type f -print | xargs rm -f
+rm -f mk.err mk.log
+
+make -C codec clean
+find ./codec \( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' -o -name '*~' \
+	-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \) \
+	-type f -print | xargs rm -f
+rm -f ./codec/mk.err ./codec/mk.log
+

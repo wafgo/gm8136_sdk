@@ -1,0 +1,73 @@
+#!/bin/bash
+
+if [ -f ../module_conf ]; then
+. ../module_conf
+else
+    SDK_SRC="/usr/src/arm-linux-2.6"
+fi
+
+ROOT_DIR=${SDK_SRC}/target
+
+False_Act()
+{
+	cat $1/mk.err
+	exit 1
+}
+
+make modules 2> mk.err || False_Act ./
+make -C codec modules 2> ./codec/mk.err || False_Act ./codec
+
+[ -f $ROOT_DIR/.config ] && . $ROOT_DIR/.config
+
+COPY_MODULE()
+{
+    if [ "$CONFIG_SSP_ALSA_UDA1345TS" ]; then
+	cp ./codec/snd_fi2s_uda1345ts.ko $1
+    fi
+
+    if [ "$CONFIG_SSP_ALSA_WM8731" ]; then
+	cp ./codec/snd_fi2s_wm8731*.ko $1
+    fi
+
+    if [ "$CONFIG_SSP_ALSA_SAA7137" ]; then
+	cp ./codec/snd_fi2s_saa7137.ko $1
+    fi
+    
+    if [ "$CONFIG_SSP_ALSA_TW2835" ]; then
+	cp ./codec/snd_fi2s_tw2835*.ko $1
+    fi
+
+    if [ "$CONFIG_SSP_ALSA_TW2864" ]; then
+	cp ./codec/snd_fi2s_tw2864.ko $1
+    fi
+
+    if [ "$CONFIG_SSP_ALSA_WM8987" ]; then
+	cp ./codec/snd_fi2s_wm8987.ko $1
+    fi
+
+    if [ "$CONFIG_SSP_ALSA_TW2815" ]; then
+	cp ./codec/snd_fi2s_tw2815*.ko $1
+    fi
+}
+
+if [ -d $ROOT_DIR/rootfs-cpio ]; then
+	cp ./*.ko $ROOT_DIR/rootfs-cpio/lib/modules
+	COPY_MODULE $ROOT_DIR/rootfs-cpio/lib/modules
+fi
+
+if [ -d $ROOT_DIR/tmp ]; then
+	cp ./*.ko $ROOT_DIR/tmp/lib/modules
+	COPY_MODULE $ROOT_DIR/tmp/lib/modules
+fi
+
+if [ -f $ROOT_DIR/ramdisk.gz ]; then
+        gzip -d $ROOT_DIR/ramdisk.gz
+        mkdir -p $ROOT_DIR/tmp
+	mount -o loop $ROOT_DIR/ramdisk $ROOT_DIR/tmp
+	cp ./*.ko $ROOT_DIR/tmp/lib/modules
+	COPY_MODULE $ROOT_DIR/tmp/lib/modules
+	umount $ROOT_DIR/tmp
+	gzip -9 $ROOT_DIR/ramdisk
+	rm -rf $ROOT_DIR/tmp
+fi
+

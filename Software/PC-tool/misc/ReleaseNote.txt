@@ -1,0 +1,6 @@
+2009/08/04
+	1. First release for SDK v0.5
+2010/01/20
+	1. Update building tool to BCB6.0
+
+

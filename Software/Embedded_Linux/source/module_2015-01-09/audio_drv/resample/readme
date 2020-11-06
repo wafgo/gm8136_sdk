@@ -1,0 +1,7 @@
+*** GM Resample library ***
+
+kernel used:
+    resample.c resample.h
+user AP:
+    other files
+if you want to use resample in user space, modify resample.c as user prgram

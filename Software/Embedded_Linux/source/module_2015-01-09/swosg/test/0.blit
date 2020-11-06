@@ -1,0 +1,9 @@
+dest_w=720
+dest_h=480
+src_w=16
+src_h=72
+bg_color=0xb580b580
+target_x=0
+target_y=0
+blending=1
+align_type=1

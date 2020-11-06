@@ -1,0 +1,5 @@
+ifeq ($(DEBUG_MESSAGE), Y)
+DEFINES += -DDEBUG_MESSAGE=1
+endif
+
+CFLAGS += $(DEFINES)

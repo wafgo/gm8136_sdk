@@ -1,0 +1,3 @@
+/usr/src/arm-linux-3.3/toolchain_gnueabi-4.4.0_ARMv5TE/usr/bin/arm-unknown-linux-uclibcgnueabi-gcc -O2 -I/usr/src/arm-linux-3.3/module/include/frammap -DPOSIX -c
+
+This will be used to compile .c files.

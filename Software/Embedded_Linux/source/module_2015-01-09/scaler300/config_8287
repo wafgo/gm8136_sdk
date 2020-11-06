@@ -1,0 +1,32 @@
+############################################################
+#
+# SCALER300 Platform Parameter for GM8287
+#
+# This config file is hardware independent, don't modify it.
+#
+# LLI_MEMORY = 1280*64/8
+# LLI_MAX_CMD = 1280*64/64    --> 1 command = 64 bits
+# LLI_MAX_BLK = 1280/32       --> 1 BLOCK = 32 commands, block 40 for dummy job
+# PARAM_MEMORY_LEN = 0x1b0
+# TOTAL_RESOLUTION = 3840     --> 1920*2
+# DUMMY_BASE = 0x2700
+#
+############################################################
+PLATFORM_ENGINE_NUM = 1
+PLATFORM_LLI_MEMORY = 0x2800
+PLATFORM_LLI_MAX_CMD = 1280
+PLATFORM_LLI_MAX_BLK = 40-1
+PLATFORM_PARAM_MEMORY_LEN = 0x1b0
+PLATFORM_TOTAL_RESOLUTION = 3840
+PLATFORM_MAX_RESOLUTION = 1920
+PLATFORM_DUMMY_BASE = 0x2700
+PLATFORM_PALETTE_MAX = 8
+PLATFORM_MAX_PATH_PER_CHAIN = 24
+PLATFORM_SRAM_BLK = 2
+PLATFORM_GM8210 = 0
+PLATFORM_GM8287 = 1
+PLATFORM_GM8139 = 0
+PLATFORM_BLK_MAX = 2
+PLATFORM_MAX_CHAIN_JOB = 24
+PLATFORM_MAX_CHAIN_LL_BLK = 30
+

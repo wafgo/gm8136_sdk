@@ -1,0 +1,166 @@
+#ifndef _MP4E_RATECONRTROL_
+#define _MP4E_RATECONRTROL_
+
+#include "mp4e_param.h"
+#ifdef VG_INTERFACE
+    #include "common.h"
+#endif
+
+#define RC_MODULE_NAME  "RC"
+
+#ifdef VG_INTERFACE
+    #include "log.h"
+    #define DEBUG_M(level, fmt, args...) { \
+        if (mj_rc_log_level == LOG_DIRECT) \
+            printk(fmt, ## args); \
+        else if (mj_rc_log_level >= level) \
+            printm(RC_MODULE_NAME, fmt, ## args); }
+    #define rc_wrn(fmt, args...) { \
+            printk(fmt, ## args); \
+            printm(RC_MODULE_NAME, fmt, ## args); }
+    #define rc_err(fmt, args...) { \
+            printk(fmt, ## args); \
+            printm(RC_MODULE_NAME, fmt, ## args); }
+#else
+    #define DEBUG_M(level, fmt, args...) { \
+        if (mj_rc_log_level >= level) \
+            printk(fmt, ## args); }
+    #define rc_wrn(fmt, args...) { \
+        printk(fmt, ## args); }
+    #define rc_err(fmt, args...) { \
+        printk(fmt, ## args); }
+#endif
+
+#define RC_CLIP3(val, low, high)    ((val)>(high)?(high):((val)<(low)?(low):(val)))
+#define LOG_EMERGY  0
+#define LOG_ERROR   1
+#define LOG_WARNING 2
+#define LOG_DEBUG   3
+#define LOG_INFO    4
+#define LOG_DIRECT  0x100
+
+#ifndef VG_INTERFACE
+#define EM_VRC_CBR  1
+#define EM_VRC_VBR  2
+#define EM_VRC_ECBR 3
+#define EM_VRC_EVBR 4
+
+#define EM_SLICE_TYPE_P     0
+#define EM_SLICE_TYPE_B     1
+#define EM_SLICE_TYPE_I     2
+#endif
+#define mj_rc_MAX_QUANT     101
+
+#define shift	17
+#define shift1	7
+#define scale  (1<<shift)
+#define scale_2  (scale<<1)
+#define scale_0_1  (long) (scale*0.1)
+#define scale_internal  (1<<shift1)
+typedef struct
+{
+	unsigned short frames;
+	int64_t total_size_fix;
+	int64_t target_rate1;		// target_rate1 = original_target_bitrate * fincr
+	int64_t avg_framesize_fix;
+	int64_t target_framesize_fix;
+} MJFRC_statics;
+
+typedef struct
+{
+	short rtn_quant;
+	short init_quant;
+	unsigned short fincr;			// framerate = fbase/fincr
+	unsigned short fbase;		// framerate = fbase/fincr
+	short max_quant;
+	short min_quant;
+	int64_t quant_error_fix[mj_rc_MAX_QUANT];
+	int64_t sequence_quality_fix;
+	int averaging_period;
+	int reaction_delay_factor;
+	int buffer;
+	int reaction_delay_max;		// max frame count will the rate-control stay when away from the target bitrate
+	int state_fcount; 	// count up when keep at max_bitrate or target_bitrate
+	int mustTarget; 		// = 1: must approach to target_bitrate
+	MJFRC_statics normal;
+	MJFRC_statics max;
+	int qp_total_n;
+	int qp_no_n;
+	int64_t fsz_th;
+	int64_t fsz_devation;
+	int64_t framesbb;		// just for debug
+	int rc_mode;		// 0: CBR, only target bitrate
+							// 1: ECBR,
+							//				usually stays at target bitrate,
+							//				produce large bitrate when big motion, but never more than max bitrate
+							// 2: EVBR,
+							//				usuall stays at init. qp,
+							//				may be decrease quality (qp up) when hit max bitrate
+							// 3: VBR,
+							//				always stays at init. qp,
+	MJFRC_statics * rc_prev; 	//prevous rc
+	int ch;
+
+	int64_t fsz_evbr;
+	int fsz_cnt;
+    int ip_offset;  // Tuba 20131206
+}
+MJFRateControl;
+
+#define RC_DELAY_FACTOR         	8//4
+#define RC_AVERAGING_PERIOD	        100
+#define RC_BUFFER_SIZE				100
+
+#define mj_quality_const (double)((double)2/(double)mj_rc_MAX_QUANT)
+#define mj_quality_fix_const (scale_2/mj_rc_MAX_QUANT)
+int MJFRateControlInit(MJFRateControl * rate_control,
+				unsigned int target_rate,
+				unsigned int reaction_delay_factor,
+				unsigned int averaging_period,
+				unsigned int buffer,
+				unsigned short fincr,
+				unsigned short fbase,
+				int max_quant,
+				int min_quant,
+				unsigned int initq,
+				unsigned int target_rate_max, 		// in bps
+							// 1. CBR:	when (target_rate != 0) && (target_rate_max == 0)
+							//		only target bitrate
+							// 2: ECBR:	when (target_rate != 0) && (target_rate_max > target_rate)
+							//		usually stays at target bitrate,
+							//		produce large bitrate when big motion, but never more than max bitrate
+							// 3: EVBR:	when (target_rate_max != 0) && (target_rate == 0)
+							//		usuall stays at init. qp,
+							//		may be decrease quality (qp up) when hit max bitrate
+							// 4: VBR: when (max_quant == min_quant)
+							//				always stays at init. qp,
+				unsigned int reaction_delay_max);
+							// max frame count will the rate-control stay when away from the target bitrate
+							// only valid at ECBR
+
+int MJFRateControlReInit(MJFRateControl * rate_control,
+				unsigned int target_rate,
+				unsigned short fincr,
+				unsigned short fbase,
+				int max_quant,
+				int min_quant,
+				unsigned int target_rate_max, 		// in bps
+							// 1. CBR:	when (target_rate != 0) && (target_rate_max == 0)
+							//		only target bitrate
+							// 2: ECBR: when (target_rate != 0) && (target_rate_max > target_rate)
+							//		usually stays at target bitrate,
+							//		produce large bitrate when big motion, but never more than max bitrate
+							// 3: EVBR:	when (target_rate_max != 0) && (target_rate == 0)
+							//		usuall stays at init. qp,
+							//		may be decrease quality (qp up) when hit max bitrate
+							// 4: VBR: when (max_quant == min_quant)
+							//				always stays at init. qp,
+				unsigned int reaction_delay_max);
+							// max frame count will the rate-control stay when away from the target bitrate
+							// only valid at ECBR
+				
+void MJFRateControlUpdate(MJFRateControl *rate_control,
+				  short quant,
+				  int frame_size,
+				  int keyframe);	// caller using rate_control->rtn_quant, it's recommanded qp value for next time use
+#endif

@@ -1,0 +1,12 @@
+on board:
+
+#arm-none-linux-gnueabi-gdbserver BOARD_IP:2345 ./fail_example
+
+
+on host:
+
+#arm-none-linux-gnueabi-gdb ./fail_example
+...
+gdb>target remote BOARD_IP:2345
+gdb>b fail_example.c:16    <= set breakpoint at line 16
+gdb>c <= continue run (Important!! Don't use "run" because the gdbserver has run the program)

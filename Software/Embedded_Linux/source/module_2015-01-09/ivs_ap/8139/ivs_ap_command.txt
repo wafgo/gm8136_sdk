@@ -1,0 +1,32 @@
+-i1: input file name
+-i2: input file name
+-iw: image width   
+-ih: image height
+-if: file format (4: ii or sii, 2: packed, 1: planar, 0: binary)
+-op: operation index (0: HSI,         1: RGB,             2: II, 
+                      3: SII,         4: de-interleaving, 5: histogram,
+                      6: convolution, 7: morphology       8: SAD,
+                      9: raster,      10: cascade                     )
+-kt: kernel template index (0 - 5) 
+-sh: shifted convolution sum 
+-ti: convolution tile
+-mp: morphology operator
+-st: select_threshold_output
+-th: threshold
+-bl: block size
+-ro: raster operationo code
+-ic: integral cascade
+-sw: swap Y CbCr
+-en: swap endian
+              
+HSI            : ivs_ap -i1     -iw -ih -if -op 0              -sw     \n
+RGB            : ivs_ap -i1     -iw -ih -if -op 1              -sw     \n
+II             : ivs_ap -i1     -iw -ih -if -op 2              -sw -en \n
+SII            : ivs_ap -i1     -iw -ih -if -op 3              -sw -en \n
+de-interleaving: ivs_ap -i1     -iw -ih -if -op 4              -sw     \n
+histogram      : ivs_ap -i1     -iw -ih -if -op 5              -sw -en \n
+convolution    : ivs_ap -i1     -iw -ih -if -op 6  -kt -sh -ti     -en \n
+morphology     : ivs_ap -i1     -iw -ih -if -op 7  -mp -st -th     -en \n
+SAD            : ivs_ap -i1 -i2 -iw -ih -if -op 8  -th -bl         -en \n
+raster         : ivs_ap -i1 -i2 -iw -ih -if -op 9  -ro             -en \n
+cascade        : ivs_ap -i1 -i2 -iw -ih -if -op 10 -ic         -sw -en \n ");

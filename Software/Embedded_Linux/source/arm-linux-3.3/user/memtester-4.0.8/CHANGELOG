@@ -1,0 +1,68 @@
+Version 4.0.8
+21 November 2007
+
+  -add a startup check for amount of memory being greater than the possible
+  address space; prevents user confusion on 32-bit systems that use addressing
+  tricks to have >4GB total system memory.  Thanks: Michael Kelly.
+  -documentation updates
+
+Version 4.0.7
+13 May 2007
+
+  -fix a bug in the align-to-page logic which may have prevented memtester
+  from mlock()ing the memory it was trying to test on some systems.
+  Thanks: Baif Chen.
+
+Version 4.0.6
+15 November 2006
+
+  -test algorithm improvement: the walking 0 bits test was only walking 
+  the 0 bit in one direction, instead of walking it up and back down 
+  the line the way it was intended to.  Thanks: Tim Rule.
+  -formatting cleanups.
+  
+Version 4.0.5
+10 March 2005
+
+  -change to the method of allocating and locking memory; if we get EPERM
+  when trying to mlock(), reset the amount of memory desired to the original
+  amount and try again without mlock().  The reason for this is that on many
+  systems, mlock() won't return EPERM until after having returned ENOMEM for
+  a larger amount.  The new behaviour allows processes without mlock privileges
+  to still test the fully-specified amount or as much memory as can be 
+  allocated.  Thanks for the suggestion and testing to Dan Bradley.
+
+Version 4.0.4
+26 August 2004
+
+  -make memtester's exit code meaningful.  See the manpage for its meaning.
+  Thanks to Wurzel Parsons-Keir, who sent a patch for the code, so I only had
+  to document it.
+
+Version 4.0.3
+10 August 2004
+
+  -small changes to enable building with dietlibc and a few other environments
+  that don't even attempt to provide the various Posix definitions.
+  -cosmetic fixes to output.
+  -restore the reduce-and-retry loop of memory locking from version 2.
+
+Version 4.0.2
+9 August 2004
+
+  -add manpage
+
+Version 4.0.1
+8 August 2004
+
+  -fix cosmetic bugs in output
+
+Version 4.0.0
+7 August 2004
+
+  -rewrite to clean up the code (previously an ugly hack), for 64-bit
+  cleanliness
+  -change build system to build on (hopefully) any platform.  Previous
+  versions required hackery on some systems.
+
+Version 3 not publicly released.

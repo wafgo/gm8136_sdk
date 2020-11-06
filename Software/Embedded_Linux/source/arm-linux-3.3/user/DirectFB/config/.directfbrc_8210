@@ -1,0 +1,14 @@
+no-vt 
+motion-compression 
+mode=1920x1080
+fbdev=/dev/fb1 
+bg-color=000000  
+mouse-source=/dev/mice
+mouse-protocol=IMPS/2
+hardware
+system=fbdev
+pixelformat=RGB16
+desktop-buffer-mode=backsystem
+no-banner
+no-translucent-windows
+

@@ -1,0 +1,12 @@
+#!/bin/sh
+../i2c_access 0x68 w 0x01 0xaa 0xff 0x00 r 0x03 > test_result
+echo >> test_result
+../i2c_access nostop 0x68 w 0x01 0xaa 0xff 0x00 r 0x03 >> test_result
+echo >> test_result
+../i2c_access 0x68 w 0x01 0xaa 0xff 0x00 >> test_result
+echo >> test_result
+../i2c_access 0x68 r 0x04 >> test_result
+
+diff test_result golden_sample
+
+echo "Finish i2c_access test"

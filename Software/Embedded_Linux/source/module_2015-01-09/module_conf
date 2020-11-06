@@ -1,0 +1,3 @@
+SDK_SRC=/usr/src/arm-linux-3.3/
+LINUX_SRC=$(SDK_SRC)linux-3.3-fa/
+sinclude $(LINUX_SRC)cross_compiler_def
