@@ -167,9 +167,11 @@ init_bus:
 
 ```
 
-The chip seem to have some peripheral mapped at **REG_AXIC_BASE = 0x9A600000** which can remap AXI slaves. Eventhough it is not mentioned with a singel word in the chip manual (or any other official ARM IP manual I was able to find). I assume from the comments that AXI slave 3 and 4, which seems to be at Bitposition 16 and 19 at offset **AXIC_REMAP=0x130** of the AXI Controller IP, are responsible to map DDR Rank 1 and 2 512 MB down the original mapping (does this make any sense -> i am not sure about that). 
+The chip seem to have some peripheral mapped at **REG_AXIC_BASE = 0x9A600000** which can remap AXI slaves. Eventhough it is not mentioned with a single word in the chip manual (or any other official ARM IP manual I was able to find). I assume from the comments that AXI slave 3 and 4, which seems to be at Bitposition 16 and 19 at offset **AXIC_REMAP=0x130** of the AXI Controller IP, are responsible to map DDR Rank 1 and 2 512 MB down the original mapping (does this make any sense -> i am not sure about that). 
 
 What i am quite sure about is that this **writing of 0x00090000 to address 0x9A600130** is responsible that U-Boot is able to be loaded and run from Address 0, eventhough it is marked as ROM in the memory map. As the gm8135 is able to address 1GB of DRAM and the available memory space marked in the memory map is just 512MB i am quite sure that this dram remapping is implemented in the ARM9 core eventhough i did not find any information about an official IP-Core from ARM with this functionality.
 
 
 ##U-Boot
+
+TBC
