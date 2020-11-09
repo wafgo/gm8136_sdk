@@ -172,6 +172,6 @@ The chip seem to have some peripheral mapped at **REG_AXIC_BASE = 0x9A600000** w
 What i am quite sure about is that this **writing of 0x00090000 to address 0x9A600130** is responsible that U-Boot is able to be loaded and run from Address 0, eventhough it is marked as ROM in the memory map. As the gm8135 is able to address 1GB of DRAM and the available memory space marked in the memory map is just 512MB i am quite sure that this dram remapping is implemented in the ARM9 core eventhough i did not find any information about an official IP-Core from ARM with this functionality.
 
 
-##U-Boot
+## U-Boot
 
 TBC
