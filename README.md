@@ -91,7 +91,10 @@ struct nand_head
 ### DRAM remap
 
 What is strange about the gm8136 is that the nsboot seems to locate the offset of U-Boot on the serial flash from the image[0].addr field of the above structure and loads this image (size = image[0].size) at address 0. This would not be strage if there was not the memory map picture depicted below.
+
+
 ![gm8136_memory_map](images/gm8136_memory_map.png "memory map of the gm8136")
+
 
 When i first saw this picture i was sure that nsboot is broken and will never work this way, because ROM is mapped at address 0. In the next step i build u-boot from source and analyzed the elf to find where U-Boot is linked. To my surprise this was the result:
 
